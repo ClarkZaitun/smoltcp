@@ -7,18 +7,10 @@ use crate::wire::ip::{checksum, pretty_print_ip_payload};
 
 pub use super::IpProtocol as Protocol;
 
-/// Minimum MTU required of all links supporting IPv4. See [RFC 791 § 3.1].
-///
-/// [RFC 791 § 3.1]: https://tools.ietf.org/html/rfc791#section-3.1
-// RFC 791 states the following:
-//
-// > Every internet module must be able to forward a datagram of 68
-// > octets without further fragmentation... Every internet destination
-// > must be able to receive a datagram of 576 octets either in one piece
-// > or in fragments to be reassembled.
-//
-// As a result, we can assume that every host we send packets to can
-// accept a packet of the following size.
+/// IPv4最小MTU（最大传输单元）要求，所有支持IPv4的链路都必须支持的最小数据包大小
+/// 参考RFC 791第3.1节：每个互联网模块必须能够转发68字节的数据报而不需要分片
+/// 每个互联网目的地必须能够接收576字节的数据报，无论是完整接收还是分片后重组
+/// 因此我们可以假设每个我们发送数据包的主机都能接受以下大小的数据包
 pub const MIN_MTU: usize = 576;
 
 /// Size of IPv4 adderess in octets.
@@ -97,12 +89,12 @@ impl AddressExt for Address {
     }
 }
 
-/// A specification of an IPv4 CIDR block, containing an address and a variable-length
-/// subnet masking prefix length.
+/// IPv4 CIDR（无类域间路由）块规范，包含IP地址和可变长子网掩码前缀长度
+/// CIDR表示法：IP地址/前缀长度，如192.168.1.0/24
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Cidr {
-    address: Address,
-    prefix_len: u8,
+    address: Address,    // 网络地址
+    prefix_len: u8,      // 前缀长度（0-32）
 }
 
 impl Cidr {
@@ -199,32 +191,38 @@ impl defmt::Format for Cidr {
     }
 }
 
-/// A read/write wrapper around an Internet Protocol version 4 packet buffer.
+/// IPv4数据包缓冲区的读写包装器
+/// 提供对原始字节缓冲区的结构化访问，支持IPv4数据包的解析和构建
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Packet<T: AsRef<[u8]>> {
-    buffer: T,
+    buffer: T,  // 底层字节缓冲区
 }
 
+/// IPv4数据包字段偏移定义
+/// 按照RFC 791标准定义IPv4头部各字段的字节偏移位置
 mod field {
     use crate::wire::field::*;
 
-    pub const VER_IHL: usize = 0;
-    pub const DSCP_ECN: usize = 1;
-    pub const LENGTH: Field = 2..4;
-    pub const IDENT: Field = 4..6;
-    pub const FLG_OFF: Field = 6..8;
-    pub const TTL: usize = 8;
-    pub const PROTOCOL: usize = 9;
-    pub const CHECKSUM: Field = 10..12;
-    pub const SRC_ADDR: Field = 12..16;
-    pub const DST_ADDR: Field = 16..20;
+    pub const VER_IHL: usize = 0;      // 版本(4位) + 头部长度(4位) = 1字节
+    pub const DSCP_ECN: usize = 1;     // 服务类型字段 = 1字节
+    pub const LENGTH: Field = 2..4;    // 总长度字段 = 2字节
+    pub const IDENT: Field = 4..6;   // 标识字段 = 2字节（用于分片重组）
+    pub const FLG_OFF: Field = 6..8;  // 标志(3位) + 片偏移(13位) = 2字节
+    pub const TTL: usize = 8;          // 生存时间字段 = 1字节
+    pub const PROTOCOL: usize = 9;     // 协议字段 = 1字节（TCP=6, UDP=17, ICMP=1）
+    pub const CHECKSUM: Field = 10..12; // 头部校验和 = 2字节
+    pub const SRC_ADDR: Field = 12..16; // 源IP地址 = 4字节
+    pub const DST_ADDR: Field = 16..20; // 目的IP地址 = 4字节
 }
 
 pub const HEADER_LEN: usize = field::DST_ADDR.end;
 
 impl<T: AsRef<[u8]>> Packet<T> {
-    /// Imbue a raw octet buffer with IPv4 packet structure.
+    /// 将原始字节缓冲区包装为IPv4数据包结构，不进行任何验证
+    /// 
+    /// # 安全
+    /// 调用者必须确保缓冲区包含有效的IPv4数据包
     pub const fn new_unchecked(buffer: T) -> Packet<T> {
         Packet { buffer }
     }
@@ -270,14 +268,17 @@ impl<T: AsRef<[u8]>> Packet<T> {
         self.buffer
     }
 
-    /// Return the version field.
+    /// 获取IPv4版本号（应该始终为4）
+    /// 版本号占据第一个字节的高4位
     #[inline]
     pub fn version(&self) -> u8 {
         let data = self.buffer.as_ref();
         data[field::VER_IHL] >> 4
     }
 
-    /// Return the header length, in octets.
+    /// 获取IPv4头部长度（以字节为单位）
+    /// 头部长度字段占据第一个字节的低4位，单位为4字节字
+    /// 最小值为20字节（无选项），最大值为60字节（有选项）
     #[inline]
     pub fn header_len(&self) -> u8 {
         let data = self.buffer.as_ref();
@@ -296,21 +297,26 @@ impl<T: AsRef<[u8]>> Packet<T> {
         data[field::DSCP_ECN] & 0x03
     }
 
-    /// Return the total length field.
+    /// 获取IPv4数据包总长度（包括头部和数据部分）
+    /// 总长度字段为2字节，表示整个IP数据包的字节数
     #[inline]
     pub fn total_len(&self) -> u16 {
         let data = self.buffer.as_ref();
         NetworkEndian::read_u16(&data[field::LENGTH])
     }
 
-    /// Return the fragment identification field.
+    /// 获取分片标识字段
+    /// 用于唯一标识一组属于同一个原始数据包的分片
+    /// 发送方对同一数据包的所有分片使用相同的标识值
     #[inline]
     pub fn ident(&self) -> u16 {
         let data = self.buffer.as_ref();
         NetworkEndian::read_u16(&data[field::IDENT])
     }
 
-    /// Return the "don't fragment" flag.
+    /// 获取"不分片"标志位
+    /// 当设置为true时，表示此数据包不允许被分片
+    /// 如果数据包太大无法通过网络，将被丢弃并发送ICMP错误
     #[inline]
     pub fn dont_frag(&self) -> bool {
         let data = self.buffer.as_ref();
@@ -359,7 +365,9 @@ impl<T: AsRef<[u8]>> Packet<T> {
         Address::from_bytes(&data[field::SRC_ADDR])
     }
 
-    /// Return the destination address field.
+        /// 获取IPv4目的地址
+    /// 
+    /// 返回数据包的目标IP地址，用于路由和交付
     #[inline]
     pub fn dst_addr(&self) -> Address {
         let data = self.buffer.as_ref();

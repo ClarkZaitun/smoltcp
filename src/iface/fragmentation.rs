@@ -44,23 +44,24 @@ impl fmt::Display for AssemblerFullError {
 #[cfg(feature = "std")]
 impl std::error::Error for AssemblerFullError {}
 
-/// Holds different fragments of one packet, used for assembling fragmented packets.
+/// 数据包分片重组器
+/// 用于存储和重组IP分片数据包的不同片段
 ///
-/// The buffer used for the `PacketAssembler` should either be dynamically sized (ex: Vec<u8>)
-/// or should be statically allocated based upon the MTU of the type of packet being
-/// assembled (ex: 1280 for a IPv6 frame).
+/// `PacketAssembler`使用的缓冲区可以是动态大小的（如Vec<u8>）
+/// 或者根据重组数据包的MTU静态分配（如IPv6帧为1280字节）
 #[derive(Debug)]
 pub struct PacketAssembler<K> {
-    key: Option<K>,
-    buffer: Buffer,
+    key: Option<K>,      // 重组键（通常包含源IP、目的IP、标识等）
+    buffer: Buffer,    // 重组缓冲区
 
-    assembler: Assembler,
-    total_size: Option<usize>,
-    expires_at: Instant,
+    assembler: Assembler,      // 分片偏移管理器
+    total_size: Option<usize>, // 预期总大小
+    expires_at: Instant,       // 过期时间
 }
 
 impl<K> PacketAssembler<K> {
-    /// Create a new empty buffer for fragments.
+    /// 创建新的空分片重组缓冲区
+    /// 初始化所有字段为默认值，准备接收分片数据
     pub const fn new() -> Self {
         Self {
             key: None,
@@ -132,12 +133,14 @@ impl<K> PacketAssembler<K> {
         Ok(())
     }
 
-    /// Add a fragment into the packet that is being reassembled.
+    /// 添加分片到正在重组的数据包中
     ///
-    /// # Errors
+    /// # 参数
+    /// * `data` - 分片数据
+    /// * `offset` - 分片在原始数据包中的偏移位置
     ///
-    /// - Returns [`Error::PacketAssemblerBufferTooSmall`] when trying to add data into the buffer at a non-existing
-    ///   place.
+    /// # 错误
+    /// - 当尝试在缓冲区不存在的位置添加数据时返回 [`Error::PacketAssemblerBufferTooSmall`]
     pub(crate) fn add(&mut self, data: &[u8], offset: usize) -> Result<(), AssemblerError> {
         #[cfg(not(feature = "alloc"))]
         if self.buffer.len() < offset + data.len() {
@@ -162,8 +165,9 @@ impl<K> PacketAssembler<K> {
         Ok(())
     }
 
-    /// Get an immutable slice of the underlying packet data, if reassembly complete.
-    /// This will mark the assembler as empty, so that it can be reused.
+    /// 获取重组完成的完整数据包
+    /// 如果重组完成，返回底层数据的不变切片，并重置重组器以便重用
+    /// 如果重组未完成，返回None
     pub(crate) fn assemble(&mut self) -> Option<&'_ [u8]> {
         if !self.is_complete() {
             return None;
@@ -175,7 +179,9 @@ impl<K> PacketAssembler<K> {
         Some(&self.buffer[..total_size])
     }
 
-    /// Returns `true` when all fragments have been received, otherwise `false`.
+    /// 检查是否已接收所有分片
+    /// 当所有分片都已接收且按正确顺序排列时返回true，否则返回false
+    /// 通过比较预期总大小与已组装的数据大小来判断完整性
     pub(crate) fn is_complete(&self) -> bool {
         self.total_size == Some(self.assembler.peek_front())
     }
@@ -186,16 +192,18 @@ impl<K> PacketAssembler<K> {
     }
 }
 
-/// Set holding multiple [`PacketAssembler`].
+/// 管理多个数据包重组器的集合
+/// 用于同时处理多个不同数据流的分片重组
 #[derive(Debug)]
 pub struct PacketAssemblerSet<K: Eq + Copy> {
-    assemblers: [PacketAssembler<K>; REASSEMBLY_BUFFER_COUNT],
+    assemblers: [PacketAssembler<K>; REASSEMBLY_BUFFER_COUNT],  // 重组器数组
 }
 
 impl<K: Eq + Copy> PacketAssemblerSet<K> {
     const NEW_PA: PacketAssembler<K> = PacketAssembler::new();
 
-    /// Create a new set of packet assemblers.
+    /// 创建新的数据包重组器集合
+    /// 初始化指定数量的重组器，用于并发处理多个数据流的分片
     pub fn new() -> Self {
         Self {
             assemblers: [Self::NEW_PA; REASSEMBLY_BUFFER_COUNT],

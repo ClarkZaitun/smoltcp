@@ -14,7 +14,9 @@ use crate::wire::{Ipv4Packet, Ipv4Repr};
 #[cfg(feature = "proto-ipv6")]
 use crate::wire::{Ipv6Packet, Ipv6Repr};
 
-/// Error returned by [`Socket::bind`]
+/// 原始套接字绑定操作返回的错误类型
+/// 
+/// 当原始套接字绑定操作失败时返回此错误
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum BindError {
@@ -34,7 +36,9 @@ impl core::fmt::Display for BindError {
 #[cfg(feature = "std")]
 impl std::error::Error for BindError {}
 
-/// Error returned by [`Socket::send`]
+/// 原始套接字发送操作返回的错误类型
+/// 
+/// 当原始套接字发送操作失败时返回此错误
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum SendError {
@@ -52,7 +56,9 @@ impl core::fmt::Display for SendError {
 #[cfg(feature = "std")]
 impl std::error::Error for SendError {}
 
-/// Error returned by [`Socket::recv`]
+/// 原始套接字接收操作返回的错误类型
+/// 
+/// 当原始套接字接收操作失败时返回此错误
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum RecvError {
@@ -72,16 +78,21 @@ impl core::fmt::Display for RecvError {
 #[cfg(feature = "std")]
 impl std::error::Error for RecvError {}
 
-/// A UDP packet metadata.
+/// UDP数据包元数据类型
+/// 
+/// 用于存储原始套接字数据包的元信息
 pub type PacketMetadata = crate::storage::PacketMetadata<()>;
 
-/// A UDP packet ring buffer.
+/// UDP数据包环形缓冲区类型
+/// 
+/// 用于存储原始套接字数据包的环形缓冲区
 pub type PacketBuffer<'a> = crate::storage::PacketBuffer<'a, ()>;
 
-/// A raw IP socket.
+/// 原始IP套接字
 ///
-/// A raw socket may be bound to a specific IP protocol, and owns
-/// transmit and receive packet buffers.
+/// 原始套接字可以绑定到特定的IP版本和数据报协议，并拥有发送和接收数据包缓冲区
+/// 
+/// 原始套接字允许直接访问IP层数据包，用于实现自定义协议或网络工具
 #[derive(Debug)]
 pub struct Socket<'a> {
     ip_version: Option<IpVersion>,
@@ -95,8 +106,9 @@ pub struct Socket<'a> {
 }
 
 impl<'a> Socket<'a> {
-    /// Create a raw IP socket bound to the given IP version and datagram protocol,
-    /// with the given buffers.
+    /// 创建绑定到指定IP版本和数据报协议的原始IP套接字，使用给定的缓冲区
+    /// 
+    /// 创建一个新的原始套接字实例，可以指定IP版本和协议类型
     pub fn new(
         ip_version: Option<IpVersion>,
         ip_protocol: Option<IpProtocol>,
@@ -115,100 +127,106 @@ impl<'a> Socket<'a> {
         }
     }
 
-    /// Register a waker for receive operations.
+    /// 注册接收操作的唤醒器
     ///
-    /// The waker is woken on state changes that might affect the return value
-    /// of `recv` method calls, such as receiving data, or the socket closing.
+    /// 当可能影响`recv`方法返回值的状态变化时唤醒，如接收到数据或套接字关闭
     ///
-    /// Notes:
+    /// 注意事项：
     ///
-    /// - Only one waker can be registered at a time. If another waker was previously registered,
-    ///   it is overwritten and will no longer be woken.
-    /// - The Waker is woken only once. Once woken, you must register it again to receive more wakes.
-    /// - "Spurious wakes" are allowed: a wake doesn't guarantee the result of `recv` has
-    ///   necessarily changed.
+    /// - 一次只能注册一个唤醒器。如果之前注册了另一个唤醒器，它将被覆盖且不再被唤醒
+    /// - 唤醒器只唤醒一次。一旦唤醒，必须重新注册才能接收更多唤醒
+    /// - 允许"虚假唤醒"：唤醒不保证`recv`的结果必然发生变化
     #[cfg(feature = "async")]
     pub fn register_recv_waker(&mut self, waker: &Waker) {
         self.rx_waker.register(waker)
     }
 
-    /// Register a waker for send operations.
+    /// 注册发送操作的唤醒器
     ///
-    /// The waker is woken on state changes that might affect the return value
-    /// of `send` method calls, such as space becoming available in the transmit
-    /// buffer, or the socket closing.
+    /// 当可能影响`send`方法返回值的状态变化时唤醒，如发送缓冲区有空间可用或套接字关闭
     ///
-    /// Notes:
+    /// 注意事项：
     ///
-    /// - Only one waker can be registered at a time. If another waker was previously registered,
-    ///   it is overwritten and will no longer be woken.
-    /// - The Waker is woken only once. Once woken, you must register it again to receive more wakes.
-    /// - "Spurious wakes" are allowed: a wake doesn't guarantee the result of `send` has
-    ///   necessarily changed.
+    /// - 一次只能注册一个唤醒器。如果之前注册了另一个唤醒器，它将被覆盖且不再被唤醒
+    /// - 唤醒器只唤醒一次。一旦唤醒，必须重新注册才能接收更多唤醒
+    /// - 允许"虚假唤醒"：唤醒不保证`send`的结果必然发生变化
     #[cfg(feature = "async")]
     pub fn register_send_waker(&mut self, waker: &Waker) {
         self.tx_waker.register(waker)
     }
 
-    /// Return the IP version the socket is bound to.
+    /// 返回套接字绑定的IP版本
+    /// 
+    /// 获取此原始套接字绑定的IP协议版本（IPv4或IPv6）
     #[inline]
     pub fn ip_version(&self) -> Option<IpVersion> {
         self.ip_version
     }
 
-    /// Return the IP protocol the socket is bound to.
+    /// 返回套接字绑定的IP协议
+    /// 
+    /// 获取此原始套接字绑定的IP协议类型（如TCP、UDP或其他自定义协议）
     #[inline]
     pub fn ip_protocol(&self) -> Option<IpProtocol> {
         self.ip_protocol
     }
 
-    /// Check whether the transmit buffer is full.
+    /// 检查发送缓冲区是否已满
+    /// 
+    /// 返回true表示发送缓冲区还有空间，可以继续发送数据
     #[inline]
     pub fn can_send(&self) -> bool {
         !self.tx_buffer.is_full()
     }
 
-    /// Check whether the receive buffer is not empty.
+    /// 检查接收缓冲区是否不为空
+    /// 
+    /// 返回true表示接收缓冲区中有数据可以读取
     #[inline]
     pub fn can_recv(&self) -> bool {
         !self.rx_buffer.is_empty()
     }
 
-    /// Return the maximum number packets the socket can receive.
+    /// 返回套接字可以接收的最大数据包数量
+    /// 
+    /// 获取接收缓冲区的数据包容量上限
     #[inline]
     pub fn packet_recv_capacity(&self) -> usize {
         self.rx_buffer.packet_capacity()
     }
 
-    /// Return the maximum number packets the socket can transmit.
+    /// 返回套接字可以发送的最大数据包数量
+    /// 
+    /// 获取发送缓冲区的数据包容量上限
     #[inline]
     pub fn packet_send_capacity(&self) -> usize {
         self.tx_buffer.packet_capacity()
     }
 
-    /// Return the maximum number of bytes inside the recv buffer.
+    /// 返回接收缓冲区中的最大字节数
+    /// 
+    /// 获取接收缓冲区的负载数据容量上限（以字节为单位）
     #[inline]
     pub fn payload_recv_capacity(&self) -> usize {
         self.rx_buffer.payload_capacity()
     }
 
-    /// Return the maximum number of bytes inside the transmit buffer.
+    /// 返回发送缓冲区中的最大字节数
+    /// 
+    /// 获取发送缓冲区的负载数据容量上限（以字节为单位）
     #[inline]
     pub fn payload_send_capacity(&self) -> usize {
         self.tx_buffer.payload_capacity()
     }
 
-    /// Enqueue a packet to send, and return a pointer to its payload.
+    /// 将数据包加入发送队列，并返回指向其负载的指针
     ///
-    /// This function returns `Err(Error::Exhausted)` if the transmit buffer is full,
-    /// and `Err(Error::Truncated)` if there is not enough transmit buffer capacity
-    /// to ever send this packet.
+    /// 如果发送缓冲区已满，此函数返回`Err(SendError::BufferFull)`
+    /// 如果没有足够的发送缓冲区容量来发送此数据包，返回`Err(SendError::Truncated)`
     ///
-    /// If the buffer is filled in a way that does not match the socket's
-    /// IP version or protocol, the packet will be silently dropped.
+    /// 如果填充缓冲区的方式与套接字的IP版本或协议不匹配，数据包将被静默丢弃
     ///
-    /// **Note:** The IP header is parsed and re-serialized, and may not match
-    /// the header actually transmitted bit for bit.
+    /// **注意：** IP头部会被解析并重新序列化，可能与实际传输的头部不完全一致
     pub fn send(&mut self, size: usize) -> Result<&mut [u8], SendError> {
         let packet_buf = self
             .tx_buffer
@@ -224,10 +242,10 @@ impl<'a> Socket<'a> {
         Ok(packet_buf)
     }
 
-    /// Enqueue a packet to be send and pass the buffer to the provided closure.
-    /// The closure then returns the size of the data written into the buffer.
+    /// 将数据包加入发送队列，并将缓冲区传递给提供的闭包
+    /// 闭包返回写入缓冲区的数据大小
     ///
-    /// Also see [send](#method.send).
+    /// 另见 [send](#method.send) 方法
     pub fn send_with<F>(&mut self, max_size: usize, f: F) -> Result<usize, SendError>
     where
         F: FnOnce(&mut [u8]) -> usize,
@@ -247,20 +265,19 @@ impl<'a> Socket<'a> {
         Ok(size)
     }
 
-    /// Enqueue a packet to send, and fill it from a slice.
+    /// 将数据包加入发送队列，并从切片填充数据
     ///
-    /// See also [send](#method.send).
+    /// 另见 [send](#method.send) 方法
     pub fn send_slice(&mut self, data: &[u8]) -> Result<(), SendError> {
         self.send(data.len())?.copy_from_slice(data);
         Ok(())
     }
 
-    /// Dequeue a packet, and return a pointer to the payload.
+    /// 从队列中取出数据包，并返回指向负载的指针
     ///
-    /// This function returns `Err(Error::Exhausted)` if the receive buffer is empty.
+    /// 如果接收缓冲区为空，此函数返回`Err(RecvError::Exhausted)`
     ///
-    /// **Note:** The IP header is parsed and re-serialized, and may not match
-    /// the header actually received bit for bit.
+    /// **注意：** IP头部会被解析并重新序列化，可能与实际接收的头部不完全一致
     pub fn recv(&mut self) -> Result<&[u8], RecvError> {
         let ((), packet_buf) = self.rx_buffer.dequeue().map_err(|_| RecvError::Exhausted)?;
 
@@ -273,12 +290,11 @@ impl<'a> Socket<'a> {
         Ok(packet_buf)
     }
 
-    /// Dequeue a packet, and copy the payload into the given slice.
+    /// 从队列中取出数据包，并将负载复制到给定的切片中
     ///
-    /// **Note**: when the size of the provided buffer is smaller than the size of the payload,
-    /// the packet is dropped and a `RecvError::Truncated` error is returned.
+    /// **注意**：当提供的缓冲区大小小于负载大小时，数据包将被丢弃并返回`RecvError::Truncated`错误
     ///
-    /// See also [recv](#method.recv).
+    /// 另见 [recv](#method.recv) 方法
     pub fn recv_slice(&mut self, data: &mut [u8]) -> Result<usize, RecvError> {
         let buffer = self.recv()?;
         if data.len() < buffer.len() {
@@ -290,11 +306,10 @@ impl<'a> Socket<'a> {
         Ok(length)
     }
 
-    /// Peek at a packet in the receive buffer and return a pointer to the
-    /// payload without removing the packet from the receive buffer.
-    /// This function otherwise behaves identically to [recv](#method.recv).
+    /// 查看接收缓冲区中的数据包，并返回指向负载的指针，但不从接收缓冲区移除该数据包
+    /// 此函数在其他方面与[recv](#method.recv)行为相同
     ///
-    /// It returns `Err(Error::Exhausted)` if the receive buffer is empty.
+    /// 如果接收缓冲区为空，返回`Err(RecvError::Exhausted)`
     pub fn peek(&mut self) -> Result<&[u8], RecvError> {
         let ((), packet_buf) = self.rx_buffer.peek().map_err(|_| RecvError::Exhausted)?;
 
@@ -308,14 +323,12 @@ impl<'a> Socket<'a> {
         Ok(packet_buf)
     }
 
-    /// Peek at a packet in the receive buffer, copy the payload into the given slice,
-    /// and return the amount of octets copied without removing the packet from the receive buffer.
-    /// This function otherwise behaves identically to [recv_slice](#method.recv_slice).
+    /// 查看接收缓冲区中的数据包，将负载复制到给定的切片中，并返回复制的字节数，但不从接收缓冲区移除该数据包
+    /// 此函数在其他方面与[recv_slice](#method.recv_slice)行为相同
     ///
-    /// **Note**: when the size of the provided buffer is smaller than the size of the payload,
-    /// no data is copied into the provided buffer and a `RecvError::Truncated` error is returned.
+    /// **注意**：当提供的缓冲区大小小于负载大小时，不会将数据复制到提供的缓冲区中，并返回`RecvError::Truncated`错误
     ///
-    /// See also [peek](#method.peek).
+    /// 另见 [peek](#method.peek) 方法
     pub fn peek_slice(&mut self, data: &mut [u8]) -> Result<usize, RecvError> {
         let buffer = self.peek()?;
         if data.len() < buffer.len() {
@@ -327,12 +340,16 @@ impl<'a> Socket<'a> {
         Ok(length)
     }
 
-    /// Return the amount of octets queued in the transmit buffer.
+    /// 返回发送缓冲区中排队的字节数
+    /// 
+    /// 获取当前发送缓冲区中等待发送的数据量
     pub fn send_queue(&self) -> usize {
         self.tx_buffer.payload_bytes_count()
     }
 
-    /// Return the amount of octets queued in the receive buffer.
+    /// 返回接收缓冲区中排队的字节数
+    /// 
+    /// 获取当前接收缓冲区中已接收但尚未处理的数据量
     pub fn recv_queue(&self) -> usize {
         self.rx_buffer.payload_bytes_count()
     }

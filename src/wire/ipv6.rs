@@ -301,7 +301,10 @@ impl defmt::Format for Cidr {
     }
 }
 
-/// A read/write wrapper around an Internet Protocol version 6 packet buffer.
+/// IPv6数据包缓冲区的读写包装器
+/// 
+/// 提供对IPv6数据包的解析、构建和修改功能
+/// IPv6是下一代互联网协议，具有更大的地址空间和改进的功能
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Packet<T: AsRef<[u8]>> {

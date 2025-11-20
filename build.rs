@@ -11,8 +11,10 @@ static CONFIGS: &[(&str, usize)] = &[
     ("IFACE_MAX_SIXLOWPAN_ADDRESS_CONTEXT_COUNT", 4),
     ("IFACE_NEIGHBOR_CACHE_COUNT", 8),
     ("IFACE_MAX_ROUTE_COUNT", 2),
+    // 用于分片大于 MTU 的出站数据包缓冲区大小。大于此设置的数据包将被丢弃，而非分片。默认值：1500。
     ("FRAGMENTATION_BUFFER_SIZE", 1500),
     ("ASSEMBLER_MAX_SEGMENT_COUNT", 4),
+    // 用于重组（分段）的缓冲区大小。如果重组包大于此设置，则会被丢弃而非重新组装。默认值：1500。
     ("REASSEMBLY_BUFFER_SIZE", 1500),
     ("REASSEMBLY_BUFFER_COUNT", 1),
     ("IPV6_HBH_MAX_OPTIONS", 4),

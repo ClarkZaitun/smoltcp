@@ -8,7 +8,9 @@ use crate::wire::{Ipv4Address, Ipv4AddressExt, Ipv4Cidr, Ipv4Packet, Ipv4Repr};
 #[cfg(feature = "proto-ipv6")]
 use crate::wire::{Ipv6Address, Ipv6AddressExt, Ipv6Cidr, Ipv6Packet, Ipv6Repr};
 
-/// Internet protocol version.
+/// IP协议版本枚举
+/// 
+/// 表示互联网协议的版本类型，支持IPv4和IPv6
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Version {
@@ -19,10 +21,9 @@ pub enum Version {
 }
 
 impl Version {
-    /// Return the version of an IP packet stored in the provided buffer.
+    /// 返回存储在提供缓冲区中的IP协议版本
     ///
-    /// This function never returns `Ok(IpVersion::Unspecified)`; instead,
-    /// unknown versions result in `Err(Error)`.
+    /// 该函数从不返回 `Ok(IpVersion::Unspecified)`；相反，未知版本会返回 `Err(Error)`
     pub const fn of_packet(data: &[u8]) -> Result<Version> {
         match data[0] >> 4 {
             #[cfg(feature = "proto-ipv4")]
@@ -46,7 +47,9 @@ impl fmt::Display for Version {
 }
 
 enum_with_unknown! {
-    /// IP datagram encapsulated protocol.
+    /// IP数据报封装的协议类型枚举
+    /// 
+    /// 定义了IP层可以承载的上层协议类型，如ICMP、TCP、UDP等
     pub enum Protocol(u8) {
         HopByHop  = 0x00,
         Icmp      = 0x01,
@@ -83,7 +86,9 @@ impl fmt::Display for Protocol {
     }
 }
 
-/// An internetworking address.
+/// 互联网地址枚举
+/// 
+/// 表示IP地址，支持IPv4和IPv6两种格式
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Address {
     /// An IPv4 address.
@@ -95,13 +100,17 @@ pub enum Address {
 }
 
 impl Address {
-    /// Create an address wrapping an IPv4 address with the given octets.
+    /// 使用给定的4个字节创建IPv4地址
+    /// 
+    /// 参数a0-a3分别对应IPv4地址的4个8位段
     #[cfg(feature = "proto-ipv4")]
     pub const fn v4(a0: u8, a1: u8, a2: u8, a3: u8) -> Address {
         Address::Ipv4(Ipv4Address::new(a0, a1, a2, a3))
     }
 
-    /// Create an address wrapping an IPv6 address with the given octets.
+    /// 使用给定的8个16位段创建IPv6地址
+    /// 
+    /// 参数a0-a7分别对应IPv6地址的8个16位段
     #[cfg(feature = "proto-ipv6")]
     #[allow(clippy::too_many_arguments)]
     pub const fn v6(
@@ -117,7 +126,9 @@ impl Address {
         Address::Ipv6(Ipv6Address::new(a0, a1, a2, a3, a4, a5, a6, a7))
     }
 
-    /// Return the protocol version.
+    /// 返回协议版本
+    /// 
+    /// 根据地址类型返回IPv4或IPv6版本信息
     pub const fn version(&self) -> Version {
         match self {
             #[cfg(feature = "proto-ipv4")]
@@ -127,7 +138,9 @@ impl Address {
         }
     }
 
-    /// Query whether the address is a valid unicast address.
+    /// 查询地址是否为有效的单播地址
+    /// 
+    /// 单播地址用于标识网络中的单个主机，与多播和广播地址区分
     pub fn is_unicast(&self) -> bool {
         match self {
             #[cfg(feature = "proto-ipv4")]
@@ -137,7 +150,9 @@ impl Address {
         }
     }
 
-    /// Query whether the address is a valid multicast address.
+    /// 查询地址是否为有效的多播地址
+    /// 
+    /// 多播地址用于标识一组主机，允许同时向多个目的地发送数据
     pub const fn is_multicast(&self) -> bool {
         match self {
             #[cfg(feature = "proto-ipv4")]
@@ -147,7 +162,9 @@ impl Address {
         }
     }
 
-    /// Query whether the address is the broadcast address.
+    /// 查询地址是否为广播地址
+    /// 
+    /// 广播地址用于向网络中的所有主机发送数据，仅IPv4支持广播
     pub fn is_broadcast(&self) -> bool {
         match self {
             #[cfg(feature = "proto-ipv4")]
@@ -157,7 +174,9 @@ impl Address {
         }
     }
 
-    /// Query whether the address falls into the "unspecified" range.
+    /// 查询地址是否属于"未指定"范围
+    /// 
+    /// 未指定地址（如IPv4的0.0.0.0或IPv6的::）通常用于表示地址未知或未分配
     pub fn is_unspecified(&self) -> bool {
         match self {
             #[cfg(feature = "proto-ipv4")]
@@ -167,8 +186,11 @@ impl Address {
         }
     }
 
-    /// If `self` is a CIDR-compatible subnet mask, return `Some(prefix_len)`,
-    /// where `prefix_len` is the number of leading zeroes. Return `None` otherwise.
+    /// 如果`self`是CIDR兼容的子网掩码，返回`Some(prefix_len)`
+    /// 
+    /// 其中`prefix_len`是前导零的数量，否则返回`None`
+    /// 
+    /// 用于判断地址是否可以作为有效的子网掩码
     pub fn prefix_len(&self) -> Option<u8> {
         match self {
             #[cfg(feature = "proto-ipv4")]
@@ -237,8 +259,9 @@ impl defmt::Format for Address {
     }
 }
 
-/// A specification of a CIDR block, containing an address and a variable-length
-/// subnet masking prefix length.
+/// CIDR块规范，包含地址和可变长子网掩码前缀长度
+/// 
+/// 用于表示IP地址范围和子网划分
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Cidr {
     #[cfg(feature = "proto-ipv4")]
@@ -248,10 +271,9 @@ pub enum Cidr {
 }
 
 impl Cidr {
-    /// Create a CIDR block from the given address and prefix length.
-    ///
-    /// # Panics
-    /// This function panics if the given prefix length is invalid for the given address.
+    /// 从给定地址和前缀长度创建CIDR块
+    /// 
+    /// 如果给定前缀长度对给定地址无效，此函数会panic
     pub const fn new(addr: Address, prefix_len: u8) -> Cidr {
         match addr {
             #[cfg(feature = "proto-ipv4")]
@@ -261,7 +283,9 @@ impl Cidr {
         }
     }
 
-    /// Return the IP address of this CIDR block.
+    /// 返回此CIDR块的IP地址
+    /// 
+    /// 获取CIDR网络地址部分
     pub const fn address(&self) -> Address {
         match *self {
             #[cfg(feature = "proto-ipv4")]
@@ -271,7 +295,9 @@ impl Cidr {
         }
     }
 
-    /// Return the prefix length of this CIDR block.
+    /// 返回此CIDR块的前缀长度
+    /// 
+    /// 获取CIDR网络掩码位数
     pub const fn prefix_len(&self) -> u8 {
         match *self {
             #[cfg(feature = "proto-ipv4")]
@@ -281,8 +307,9 @@ impl Cidr {
         }
     }
 
-    /// Query whether the subnetwork described by this CIDR block contains
-    /// the given address.
+    /// 查询此CIDR块描述的子网是否包含给定地址
+    /// 
+    /// 判断指定IP地址是否属于此CIDR网络范围
     pub fn contains_addr(&self, addr: &Address) -> bool {
         match (self, addr) {
             #[cfg(feature = "proto-ipv4")]
@@ -294,8 +321,9 @@ impl Cidr {
         }
     }
 
-    /// Query whether the subnetwork described by this CIDR block contains
-    /// the subnetwork described by the given CIDR block.
+    /// 查询此CIDR块描述的子网是否包含给定CIDR块描述的子网
+    /// 
+    /// 判断一个子网是否完全包含在另一个子网内
     pub fn contains_subnet(&self, subnet: &Cidr) -> bool {
         match (self, subnet) {
             #[cfg(feature = "proto-ipv4")]
@@ -345,12 +373,11 @@ impl defmt::Format for Cidr {
     }
 }
 
-/// An internet endpoint address.
-///
-/// `Endpoint` always fully specifies both the address and the port.
-///
-/// See also ['ListenEndpoint'], which allows not specifying the address
-/// in order to listen on a given port on any address.
+/// 互联网端点地址
+/// 
+/// `Endpoint`始终完全指定地址和端口
+/// 
+/// 另见['ListenEndpoint']，它允许不指定地址以便在任何地址上监听给定端口
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Endpoint {
     pub addr: Address,
@@ -358,7 +385,9 @@ pub struct Endpoint {
 }
 
 impl Endpoint {
-    /// Create an endpoint address from given address and port.
+    /// 从给定地址和端口创建端点地址
+    /// 
+    /// 组合IP地址和端口号创建网络端点
     pub const fn new(addr: Address, port: u16) -> Endpoint {
         Endpoint { addr, port }
     }
@@ -533,7 +562,9 @@ impl From<Ipv6Repr> for Repr {
     }
 }
 
-/// A read/write wrapper around a generic Internet Protocol packet buffer.
+/// 通用互联网协议数据包缓冲区的读写包装器
+/// 
+/// 提供对IP数据包（IPv4或IPv6）的统一访问接口
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Packet<T: AsRef<[u8]>> {
@@ -547,24 +578,25 @@ mod field {
 }
 
 impl<T: AsRef<[u8]>> Packet<T> {
-    /// Create a raw octet buffer with an IP packet structure. This packet structure can be either
-    /// IPv4 or Ipv6
+    /// 创建具有IP数据包结构的原始字节缓冲区
+    /// 
+    /// 此数据包结构可以是IPv4或IPv6
     pub const fn new_unchecked(buffer: T) -> Packet<T> {
         Packet { buffer }
     }
 
-    /// Shorthand for a combination of [new_unchecked] and [check_len].
-    ///
-    /// [new_unchecked]: #method.new_unchecked
-    /// [check_len]: #method.check_len
+    /// [new_unchecked]和[check_len]的组合简写
+    /// 
+    /// 先创建数据包实例，然后检查长度有效性
     pub fn new_checked(buffer: T) -> Result<Packet<T>> {
         let packet = Self::new_unchecked(buffer);
         packet.check_len()?;
         Ok(packet)
     }
 
-    /// Ensure that reading the version field of the buffer will not panic if called.
-    /// Returns `Err(Error)` if the buffer is too short.
+    /// 确保调用时读取版本字段不会panic
+    /// 
+    /// 如果缓冲区太短，返回`Err(Error)`
     pub fn check_len(&self) -> Result<()> {
         // Both IPv4 and IPv6 headers contain Internet Protocol version in the upper nibble of the
         // first packet byte
@@ -575,12 +607,16 @@ impl<T: AsRef<[u8]>> Packet<T> {
         }
     }
 
-    /// Consume the packet, returning the underlying buffer
+    /// 消费数据包，返回底层缓冲区
+    /// 
+    /// 获取原始缓冲区数据，释放数据包包装器
     pub fn into_inner(self) -> T {
         self.buffer
     }
 
-    /// Returns the version field.
+    /// 返回版本字段
+    /// 
+    /// 获取IP协议版本号（4或6）
     pub fn version(&self) -> u8 {
         let data = self.buffer.as_ref();
         data[field::VER.start] >> 4
@@ -588,11 +624,9 @@ impl<T: AsRef<[u8]>> Packet<T> {
 }
 
 impl Repr {
-    /// Create a new IpRepr, choosing the right IP version for the src/dst addrs.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `src_addr` and `dst_addr` are different IP version.
+    /// 创建新的IpRepr，为源/目的地址选择正确的IP版本
+    /// 
+    /// 如果`src_addr`和`dst_addr`是不同IP版本，会panic
     pub fn new(
         src_addr: Address,
         dst_addr: Address,
@@ -622,12 +656,10 @@ impl Repr {
         }
     }
 
-    /// Parse an Internet Protocol packet and return an [IpRepr] containing either an Internet
-    /// Protocol version 4 or Internet Protocol version 6 packet. Delegates the parsing to the
-    /// specific Internet Protocol parsing function. Includes [ChecksumCapabilities] to handle
-    /// Internet Protocol version 4 parsing.
-    /// Returns `Err(Error)` if the packet does not include a valid IPv4 or IPv6 packet, or if the
-    /// specific Internet Protocol version feature is not enabled for the supplied packet
+    /// 解析互联网协议数据包并返回包含IPv4或IPv6数据包的[IpRepr]
+    /// 
+    /// 委托解析到特定的互联网协议解析函数，包含[ChecksumCapabilities]处理IPv4解析
+    /// 如果数据包不包含有效的IPv4或IPv6数据包，或者特定IP版本功能未启用，返回`Err(Error)`
     pub fn parse<T: AsRef<[u8]> + ?Sized>(
         packet: &Packet<&T>,
         checksum_caps: &ChecksumCapabilities,
@@ -670,7 +702,9 @@ impl Repr {
         }
     }
 
-    /// Return the destination address.
+    /// 返回目的地址
+    /// 
+    /// 获取目标IP地址
     pub const fn dst_addr(&self) -> Address {
         match *self {
             #[cfg(feature = "proto-ipv4")]
@@ -680,7 +714,9 @@ impl Repr {
         }
     }
 
-    /// Return the next header (protocol).
+    /// 返回下一头部（协议）
+    /// 
+    /// 获取上层协议类型（如TCP、UDP等）
     pub const fn next_header(&self) -> Protocol {
         match *self {
             #[cfg(feature = "proto-ipv4")]
@@ -690,7 +726,9 @@ impl Repr {
         }
     }
 
-    /// Return the payload length.
+    /// 返回负载长度
+    /// 
+    /// 获取数据包负载部分的字节数
     pub const fn payload_len(&self) -> usize {
         match *self {
             #[cfg(feature = "proto-ipv4")]
@@ -700,7 +738,9 @@ impl Repr {
         }
     }
 
-    /// Set the payload length.
+    /// 设置负载长度
+    /// 
+    /// 修改数据包负载部分的字节数
     pub fn set_payload_len(&mut self, length: usize) {
         match self {
             #[cfg(feature = "proto-ipv4")]
@@ -710,7 +750,9 @@ impl Repr {
         }
     }
 
-    /// Return the TTL value.
+    /// 返回TTL值
+    /// 
+    /// 获取生存时间（IPv4）或跳数限制（IPv6）
     pub const fn hop_limit(&self) -> u8 {
         match *self {
             #[cfg(feature = "proto-ipv4")]
@@ -720,7 +762,9 @@ impl Repr {
         }
     }
 
-    /// Return the length of a header that will be emitted from this high-level representation.
+    /// 返回从此高级表示发出的头部长度
+    /// 
+    /// 获取IP头部占用的字节数
     pub const fn header_len(&self) -> usize {
         match *self {
             #[cfg(feature = "proto-ipv4")]
@@ -730,7 +774,9 @@ impl Repr {
         }
     }
 
-    /// Emit this high-level representation into a buffer.
+    /// 将此高级表示发出到缓冲区
+    /// 
+    /// 将IP表示转换为字节序列并写入缓冲区
     pub fn emit<T: AsRef<[u8]> + AsMut<[u8]>>(
         &self,
         buffer: T,
@@ -744,10 +790,9 @@ impl Repr {
         }
     }
 
-    /// Return the total length of a packet that will be emitted from this
-    /// high-level representation.
-    ///
-    /// This is the same as `repr.buffer_len() + repr.payload_len()`.
+    /// 返回从此高级表示发出的数据包总长度
+    /// 
+    /// 等同于`repr.buffer_len() + repr.payload_len()`
     pub const fn buffer_len(&self) -> usize {
         self.header_len() + self.payload_len()
     }
@@ -763,7 +808,9 @@ pub mod checksum {
         ((sum >> 16) as u16) + (sum as u16)
     }
 
-    /// Compute an RFC 1071 compliant checksum (without the final complement).
+    /// 计算符合RFC 1071的校验和（不包含最终补码）
+    /// 
+    /// 用于IP、TCP、UDP等协议的校验和计算
     pub fn data(mut data: &[u8]) -> u16 {
         let mut accum = 0;
 
@@ -795,7 +842,9 @@ pub mod checksum {
         propagate_carries(accum)
     }
 
-    /// Combine several RFC 1071 compliant checksums.
+    /// 组合多个符合RFC 1071的校验和
+    /// 
+    /// 将多个部分校验和合并为最终校验和
     pub fn combine(checksums: &[u16]) -> u16 {
         let mut accum: u32 = 0;
         for &word in checksums {

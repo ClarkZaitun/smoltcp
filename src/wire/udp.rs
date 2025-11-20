@@ -6,22 +6,28 @@ use crate::phy::ChecksumCapabilities;
 use crate::wire::ip::checksum;
 use crate::wire::{IpAddress, IpProtocol};
 
-/// A read/write wrapper around an User Datagram Protocol packet buffer.
+/// UDP（用户数据报协议）数据包缓冲区的读写包装器
+/// 提供对UDP数据包的解析、构建和修改功能
+/// UDP是无连接的不可靠传输协议，提供简单的数据报服务
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Packet<T: AsRef<[u8]>> {
-    buffer: T,
+    buffer: T,  // 底层字节缓冲区
 }
 
+/// UDP头部字段偏移定义
+/// 按照RFC 768标准定义UDP头部各字段的字节偏移位置
 mod field {
     #![allow(non_snake_case)]
 
     use crate::wire::field::*;
 
-    pub const SRC_PORT: Field = 0..2;
-    pub const DST_PORT: Field = 2..4;
-    pub const LENGTH: Field = 4..6;
-    pub const CHECKSUM: Field = 6..8;
+    // UDP头部固定字段（8字节）
+    pub const SRC_PORT: Field = 0..2;      // 源端口号 = 2字节
+    pub const DST_PORT: Field = 2..4;      // 目的端口号 = 2字节
+    pub const LENGTH: Field = 4..6;        // 数据包长度 = 2字节
+    pub const CHECKSUM: Field = 6..8;      // 校验和 = 2字节
 
+    // 动态负载字段范围
     pub const fn PAYLOAD(length: u16) -> Field {
         CHECKSUM.end..(length as usize)
     }
@@ -31,7 +37,10 @@ pub const HEADER_LEN: usize = field::CHECKSUM.end;
 
 #[allow(clippy::len_without_is_empty)]
 impl<T: AsRef<[u8]>> Packet<T> {
-    /// Imbue a raw octet buffer with UDP packet structure.
+    /// 将原始字节缓冲区包装为UDP数据包结构，不进行任何验证
+    /// 
+    /// # 安全
+    /// 调用者必须确保缓冲区包含有效的UDP数据包，且长度至少为8字节（UDP头部长度）
     pub const fn new_unchecked(buffer: T) -> Packet<T> {
         Packet { buffer }
     }
@@ -73,28 +82,36 @@ impl<T: AsRef<[u8]>> Packet<T> {
         self.buffer
     }
 
-    /// Return the source port field.
+    /// 获取UDP源端口号
+    /// 源端口标识发送方的应用程序端点，0-1023为知名端口，1024-49151为注册端口
+    /// 当不需要返回数据时，源端口可以为0
     #[inline]
     pub fn src_port(&self) -> u16 {
         let data = self.buffer.as_ref();
         NetworkEndian::read_u16(&data[field::SRC_PORT])
     }
 
-    /// Return the destination port field.
+    /// 获取UDP目的端口号
+    /// 目的端口标识接收方的应用程序端点，0-1023为知名端口，1024-49151为注册端口
+    /// 常用端口：53(DNS)、67/68(DHCP)、69(TFTP)、123(NTP)
     #[inline]
     pub fn dst_port(&self) -> u16 {
         let data = self.buffer.as_ref();
         NetworkEndian::read_u16(&data[field::DST_PORT])
     }
 
-    /// Return the length field.
+    /// 获取UDP数据包总长度（包括头部和数据部分）
+    /// UDP总长度字段为2字节，最小值为8（仅头部），最大值为65535字节
+    /// 长度 = UDP头部(8字节) + 负载数据长度
     #[inline]
     pub fn len(&self) -> u16 {
         let data = self.buffer.as_ref();
         NetworkEndian::read_u16(&data[field::LENGTH])
     }
 
-    /// Return the checksum field.
+    /// 获取UDP校验和
+    /// UDP校验和是可选字段，值为0表示未使用校验和（IPv4中允许）
+    /// 校验和覆盖UDP头部、数据和伪头部（源IP、目的IP、协议、UDP长度）
     #[inline]
     pub fn checksum(&self) -> u16 {
         let data = self.buffer.as_ref();
@@ -222,7 +239,9 @@ impl<T: AsRef<[u8]>> AsRef<[u8]> for Packet<T> {
     }
 }
 
-/// A high-level representation of an User Datagram Protocol packet.
+/// 用户数据报协议数据包的高级表示
+/// 
+/// 包含源端口和目的端口信息，用于UDP协议的数据传输
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Repr {
     pub src_port: u16,

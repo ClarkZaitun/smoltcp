@@ -160,7 +160,10 @@ enum_with_unknown! {
     }
 }
 
-/// A read/write wrapper around an Internet Control Message Protocol version 4 packet buffer.
+/// ICMPv4（Internet控制消息协议版本4）数据包缓冲区的读写包装器
+/// 
+/// 提供对ICMPv4数据包的解析、构建和修改功能
+/// ICMPv4用于在IPv4网络中传递错误报告和控制信息
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Packet<T: AsRef<[u8]>> {

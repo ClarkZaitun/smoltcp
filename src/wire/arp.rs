@@ -7,21 +7,27 @@ use super::{EthernetAddress, Ipv4Address, Ipv4AddressExt};
 pub use super::EthernetProtocol as Protocol;
 
 enum_with_unknown! {
-    /// ARP hardware type.
+    /// ARP硬件类型枚举
+    /// 
+    /// 定义ARP协议使用的硬件地址类型，如以太网
     pub enum Hardware(u16) {
         Ethernet = 1
     }
 }
 
 enum_with_unknown! {
-    /// ARP operation type.
+    /// ARP操作类型枚举
+    /// 
+    /// 定义ARP协议的操作类型，包括请求和响应
     pub enum Operation(u16) {
         Request = 1,
         Reply = 2
     }
 }
 
-/// A read/write wrapper around an Address Resolution Protocol packet buffer.
+/// 地址解析协议(ARP)数据包缓冲区的读写包装器
+/// 
+/// 提供对ARP数据包的安全访问和操作，用于IP地址到MAC地址的解析
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Packet<T: AsRef<[u8]>> {
@@ -65,13 +71,16 @@ mod field {
 }
 
 impl<T: AsRef<[u8]>> Packet<T> {
-    /// Imbue a raw octet buffer with ARP packet structure.
+    /// 将原始字节缓冲区赋予ARP数据包结构
+    /// 
+    /// 创建ARP数据包实例，不检查缓冲区长度和有效性
     pub const fn new_unchecked(buffer: T) -> Packet<T> {
         Packet { buffer }
     }
 
-    /// Shorthand for a combination of [new_unchecked] and [check_len].
+    /// [new_unchecked]和[check_len]的组合简写
     ///
+    /// 先创建数据包实例，然后检查长度有效性
     /// [new_unchecked]: #method.new_unchecked
     /// [check_len]: #method.check_len
     pub fn new_checked(buffer: T) -> Result<Packet<T>> {
@@ -80,11 +89,11 @@ impl<T: AsRef<[u8]>> Packet<T> {
         Ok(packet)
     }
 
-    /// Ensure that no accessor method will panic if called.
-    /// Returns `Err(Error)` if the buffer is too short.
+    /// 确保调用访问器方法时不会panic
+    /// 
+    /// 如果缓冲区太短，返回`Err(Error)`
     ///
-    /// The result of this check is invalidated by calling [set_hardware_len] or
-    /// [set_protocol_len].
+    /// 调用[set_hardware_len]或[set_protocol_len]会使此检查结果失效
     ///
     /// [set_hardware_len]: #method.set_hardware_len
     /// [set_protocol_len]: #method.set_protocol_len
@@ -100,12 +109,16 @@ impl<T: AsRef<[u8]>> Packet<T> {
         }
     }
 
-    /// Consume the packet, returning the underlying buffer.
+    /// 消费数据包，返回底层缓冲区
+    /// 
+    /// 获取原始缓冲区数据，释放数据包包装器
     pub fn into_inner(self) -> T {
         self.buffer
     }
 
-    /// Return the hardware type field.
+    /// 返回硬件类型字段
+    /// 
+    /// 获取ARP协议使用的硬件地址类型，如以太网
     #[inline]
     pub fn hardware_type(&self) -> Hardware {
         let data = self.buffer.as_ref();
@@ -113,7 +126,9 @@ impl<T: AsRef<[u8]>> Packet<T> {
         Hardware::from(raw)
     }
 
-    /// Return the protocol type field.
+    /// 返回协议类型字段
+    /// 
+    /// 获取ARP协议解析的网络协议类型，通常是IPv4
     #[inline]
     pub fn protocol_type(&self) -> Protocol {
         let data = self.buffer.as_ref();
@@ -121,21 +136,27 @@ impl<T: AsRef<[u8]>> Packet<T> {
         Protocol::from(raw)
     }
 
-    /// Return the hardware length field.
+    /// 返回硬件地址长度字段
+    /// 
+    /// 获取硬件地址的字节长度，以太网为6字节
     #[inline]
     pub fn hardware_len(&self) -> u8 {
         let data = self.buffer.as_ref();
         data[field::HLEN]
     }
 
-    /// Return the protocol length field.
+    /// 返回协议地址长度字段
+    /// 
+    /// 获取网络协议地址的字节长度，IPv4为4字节
     #[inline]
     pub fn protocol_len(&self) -> u8 {
         let data = self.buffer.as_ref();
         data[field::PLEN]
     }
 
-    /// Return the operation field.
+    /// 返回操作字段
+    /// 
+    /// 获取ARP操作类型，如请求(1)或响应(2)
     #[inline]
     pub fn operation(&self) -> Operation {
         let data = self.buffer.as_ref();
@@ -143,25 +164,33 @@ impl<T: AsRef<[u8]>> Packet<T> {
         Operation::from(raw)
     }
 
-    /// Return the source hardware address field.
+    /// 返回源硬件地址字段
+    /// 
+    /// 获取发送方的MAC地址
     pub fn source_hardware_addr(&self) -> &[u8] {
         let data = self.buffer.as_ref();
         &data[field::SHA(self.hardware_len(), self.protocol_len())]
     }
 
-    /// Return the source protocol address field.
+    /// 返回源协议地址字段
+    /// 
+    /// 获取发送方的IP地址
     pub fn source_protocol_addr(&self) -> &[u8] {
         let data = self.buffer.as_ref();
         &data[field::SPA(self.hardware_len(), self.protocol_len())]
     }
 
-    /// Return the target hardware address field.
+    /// 返回目的硬件地址字段
+    /// 
+    /// 获取接收方的MAC地址
     pub fn target_hardware_addr(&self) -> &[u8] {
         let data = self.buffer.as_ref();
         &data[field::THA(self.hardware_len(), self.protocol_len())]
     }
 
-    /// Return the target protocol address field.
+    /// 返回目的协议地址字段
+    /// 
+    /// 获取接收方的IP地址
     pub fn target_protocol_addr(&self) -> &[u8] {
         let data = self.buffer.as_ref();
         &data[field::TPA(self.hardware_len(), self.protocol_len())]
@@ -169,42 +198,54 @@ impl<T: AsRef<[u8]>> Packet<T> {
 }
 
 impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
-    /// Set the hardware type field.
+    /// 设置硬件类型字段
+    /// 
+    /// 修改ARP协议使用的硬件地址类型
     #[inline]
     pub fn set_hardware_type(&mut self, value: Hardware) {
         let data = self.buffer.as_mut();
         NetworkEndian::write_u16(&mut data[field::HTYPE], value.into())
     }
 
-    /// Set the protocol type field.
+    /// 设置协议类型字段
+    /// 
+    /// 修改ARP协议解析的网络协议类型
     #[inline]
     pub fn set_protocol_type(&mut self, value: Protocol) {
         let data = self.buffer.as_mut();
         NetworkEndian::write_u16(&mut data[field::PTYPE], value.into())
     }
 
-    /// Set the hardware length field.
+    /// 设置硬件长度字段
+    /// 
+    /// 修改硬件地址的字节长度
     #[inline]
     pub fn set_hardware_len(&mut self, value: u8) {
         let data = self.buffer.as_mut();
         data[field::HLEN] = value
     }
 
-    /// Set the protocol length field.
+    /// 设置协议长度字段
+    /// 
+    /// 修改网络协议地址的字节长度
     #[inline]
     pub fn set_protocol_len(&mut self, value: u8) {
         let data = self.buffer.as_mut();
         data[field::PLEN] = value
     }
 
-    /// Set the operation field.
+    /// 设置操作字段
+    /// 
+    /// 修改ARP操作类型，如请求或响应
     #[inline]
     pub fn set_operation(&mut self, value: Operation) {
         let data = self.buffer.as_mut();
         NetworkEndian::write_u16(&mut data[field::OPER], value.into())
     }
 
-    /// Set the source hardware address field.
+    /// 设置源硬件地址字段
+    /// 
+    /// 修改发送方的MAC地址
     ///
     /// # Panics
     /// The function panics if `value` is not `self.hardware_len()` long.
@@ -214,7 +255,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         data[field::SHA(hardware_len, protocol_len)].copy_from_slice(value)
     }
 
-    /// Set the source protocol address field.
+    /// 设置源协议地址字段
+    /// 
+    /// 修改发送方的IP地址
     ///
     /// # Panics
     /// The function panics if `value` is not `self.protocol_len()` long.
@@ -224,7 +267,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         data[field::SPA(hardware_len, protocol_len)].copy_from_slice(value)
     }
 
-    /// Set the target hardware address field.
+    /// 设置目的硬件地址字段
+    /// 
+    /// 修改接收方的MAC地址
     ///
     /// # Panics
     /// The function panics if `value` is not `self.hardware_len()` long.
@@ -234,7 +279,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         data[field::THA(hardware_len, protocol_len)].copy_from_slice(value)
     }
 
-    /// Set the target protocol address field.
+    /// 设置目的协议地址字段
+    /// 
+    /// 修改接收方的IP地址
     ///
     /// # Panics
     /// The function panics if `value` is not `self.protocol_len()` long.
@@ -251,7 +298,9 @@ impl<T: AsRef<[u8]>> AsRef<[u8]> for Packet<T> {
     }
 }
 
-/// A high-level representation of an Address Resolution Protocol packet.
+/// 地址解析协议数据包的高级表示
+/// 
+/// 包含ARP操作类型和地址信息，用于IP地址到MAC地址的映射
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
@@ -267,8 +316,9 @@ pub enum Repr {
 }
 
 impl Repr {
-    /// Parse an Address Resolution Protocol packet and return a high-level representation,
-    /// or return `Err(Error)` if the packet is not recognized.
+    /// 解析地址解析协议数据包并返回高级表示
+    /// 
+    /// 如果数据包不被识别，返回`Err(Error)`
     pub fn parse<T: AsRef<[u8]>>(packet: &Packet<T>) -> Result<Repr> {
         packet.check_len()?;
 
@@ -289,14 +339,18 @@ impl Repr {
         }
     }
 
-    /// Return the length of a packet that will be emitted from this high-level representation.
+    /// 返回数据包长度
+    /// 
+    /// 计算ARP数据包的总字节数，包括所有字段
     pub const fn buffer_len(&self) -> usize {
         match *self {
             Repr::EthernetIpv4 { .. } => field::TPA(6, 4).end,
         }
     }
 
-    /// Emit a high-level representation into an Address Resolution Protocol packet.
+    /// 将高级表示发射到地址解析协议数据包
+    /// 
+    /// 根据高级表示生成ARP数据包内容
     pub fn emit<T: AsRef<[u8]> + AsMut<[u8]>>(&self, packet: &mut Packet<T>) {
         match *self {
             Repr::EthernetIpv4 {

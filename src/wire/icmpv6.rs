@@ -191,7 +191,10 @@ impl fmt::Display for TimeExceeded {
     }
 }
 
-/// A read/write wrapper around an Internet Control Message Protocol version 6 packet buffer.
+/// ICMPv6（Internet控制消息协议版本6）数据包缓冲区的读写包装器
+/// 
+/// 提供对ICMPv6数据包的解析、构建和修改功能
+/// ICMPv6用于在IPv6网络中传递错误报告和控制信息，比ICMPv4功能更丰富
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Packet<T: AsRef<[u8]>> {

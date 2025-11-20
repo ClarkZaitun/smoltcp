@@ -1,26 +1,32 @@
 use crate::phy::DeviceCapabilities;
 use crate::wire::*;
 
+/// 以太网帧数据包枚举
+/// 用于处理以太网层的不同类型的数据包
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg(feature = "medium-ethernet")]
 pub(crate) enum EthernetPacket<'a> {
     #[cfg(feature = "proto-ipv4")]
-    Arp(ArpRepr),
-    Ip(Packet<'a>),
+    Arp(ArpRepr),  // ARP（地址解析协议）数据包
+    Ip(Packet<'a>), // IP数据包（IPv4/IPv6）
 }
 
+/// IP层数据包枚举
+/// 区分IPv4和IPv6数据包，用于网络层的包处理
 #[derive(Debug, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub(crate) enum Packet<'p> {
     #[cfg(feature = "proto-ipv4")]
-    Ipv4(PacketV4<'p>),
+    Ipv4(PacketV4<'p>),  // IPv4数据包
     #[cfg(feature = "proto-ipv6")]
-    Ipv6(PacketV6<'p>),
+    Ipv6(PacketV6<'p>),  // IPv6数据包
 }
 
 impl<'p> Packet<'p> {
+    /// 创建新的IP数据包
+    /// 根据IP协议版本（IPv4/IPv6）创建相应的数据包实例
     pub(crate) fn new(ip_repr: IpRepr, payload: IpPayload<'p>) -> Self {
         match ip_repr {
             #[cfg(feature = "proto-ipv4")]
@@ -70,6 +76,9 @@ impl<'p> Packet<'p> {
         }
     }
 
+    /// 发射（生成）数据包负载
+    /// 根据负载类型（ICMPv4/ICMPv6/IGMP/UDP/TCP/DHCPv4等）调用相应的协议emit函数
+    /// 处理数据包构建和校验和计算
     pub(crate) fn emit_payload(
         &self,
         _ip_repr: &IpRepr,

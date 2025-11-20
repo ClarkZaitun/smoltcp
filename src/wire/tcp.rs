@@ -6,10 +6,11 @@ use crate::phy::ChecksumCapabilities;
 use crate::wire::ip::checksum;
 use crate::wire::{IpAddress, IpProtocol};
 
-/// A TCP sequence number.
-///
-/// A sequence number is a monotonically advancing integer modulo 2<sup>32</sup>.
-/// Sequence numbers do not have a discontiguity when compared pairwise across a signed overflow.
+/// TCP序列号
+/// 
+/// TCP序列号是一个单调递增的整数，模2^32
+/// 序列号在符号溢出时进行比较没有不连续性
+/// 用于确保TCP数据的有序传输和可靠交付
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub struct SeqNumber(pub i32);
 
@@ -82,54 +83,65 @@ impl cmp::PartialOrd for SeqNumber {
     }
 }
 
-/// A read/write wrapper around a Transmission Control Protocol packet buffer.
+/// TCP（传输控制协议）数据包缓冲区的读写包装器
+/// 提供对TCP数据包的解析、构建和修改功能
+/// TCP是面向连接的可靠传输协议，提供流量控制、拥塞控制等功能
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Packet<T: AsRef<[u8]>> {
-    buffer: T,
+    buffer: T,  // 底层字节缓冲区
 }
 
+/// TCP头部字段偏移定义
+/// 按照RFC 793标准定义TCP头部各字段的字节偏移位置
 mod field {
     #![allow(non_snake_case)]
 
     use crate::wire::field::*;
 
-    pub const SRC_PORT: Field = 0..2;
-    pub const DST_PORT: Field = 2..4;
-    pub const SEQ_NUM: Field = 4..8;
-    pub const ACK_NUM: Field = 8..12;
-    pub const FLAGS: Field = 12..14;
-    pub const WIN_SIZE: Field = 14..16;
-    pub const CHECKSUM: Field = 16..18;
-    pub const URGENT: Field = 18..20;
+    // TCP头部固定字段（20字节）
+    pub const SRC_PORT: Field = 0..2;      // 源端口号 = 2字节
+    pub const DST_PORT: Field = 2..4;      // 目的端口号 = 2字节
+    pub const SEQ_NUM: Field = 4..8;       // 序列号 = 4字节
+    pub const ACK_NUM: Field = 8..12;      // 确认号 = 4字节
+    pub const FLAGS: Field = 12..14;       // 标志位 = 2字节
+    pub const WIN_SIZE: Field = 14..16;    // 窗口大小 = 2字节
+    pub const CHECKSUM: Field = 16..18;    // 校验和 = 2字节
+    pub const URGENT: Field = 18..20;     // 紧急指针 = 2字节
 
+    // 动态选项字段范围
     pub const fn OPTIONS(length: u8) -> Field {
         URGENT.end..(length as usize)
     }
 
-    pub const FLG_FIN: u16 = 0x001;
-    pub const FLG_SYN: u16 = 0x002;
-    pub const FLG_RST: u16 = 0x004;
-    pub const FLG_PSH: u16 = 0x008;
-    pub const FLG_ACK: u16 = 0x010;
-    pub const FLG_URG: u16 = 0x020;
-    pub const FLG_ECE: u16 = 0x040;
-    pub const FLG_CWR: u16 = 0x080;
-    pub const FLG_NS: u16 = 0x100;
+    // TCP标志位定义（在FLAGS字段中）
+    pub const FLG_FIN: u16 = 0x001;  // FIN：连接终止
+    pub const FLG_SYN: u16 = 0x002;  // SYN：同步序列号，建立连接
+    pub const FLG_RST: u16 = 0x004;  // RST：重置连接
+    pub const FLG_PSH: u16 = 0x008;  // PSH：推送数据
+    pub const FLG_ACK: u16 = 0x010;  // ACK：确认字段有效
+    pub const FLG_URG: u16 = 0x020;  // URG：紧急指针有效
+    pub const FLG_ECE: u16 = 0x040;  // ECE：ECN回显
+    pub const FLG_CWR: u16 = 0x080;  // CWR：拥塞窗口减少
+    pub const FLG_NS: u16 = 0x100;   // NS：噪声抑制
 
-    pub const OPT_END: u8 = 0x00;
-    pub const OPT_NOP: u8 = 0x01;
-    pub const OPT_MSS: u8 = 0x02;
-    pub const OPT_WS: u8 = 0x03;
-    pub const OPT_SACKPERM: u8 = 0x04;
-    pub const OPT_SACKRNG: u8 = 0x05;
-    pub const OPT_TSTAMP: u8 = 0x08;
+    // TCP选项类型
+    pub const OPT_END: u8 = 0x00;     // 选项结束
+    pub const OPT_NOP: u8 = 0x01;     // 无操作（填充）
+    pub const OPT_MSS: u8 = 0x02;     // 最大段大小
+    pub const OPT_WS: u8 = 0x03;      // 窗口缩放
+    pub const OPT_SACKPERM: u8 = 0x04; // 选择性确认允许
+    pub const OPT_SACKRNG: u8 = 0x05; // 选择性确认范围
+    pub const OPT_TSTAMP: u8 = 0x08;  // 时间戳
 }
 
 pub const HEADER_LEN: usize = field::URGENT.end;
 
 impl<T: AsRef<[u8]>> Packet<T> {
-    /// Imbue a raw octet buffer with TCP packet structure.
+    /// 将原始字节缓冲区包装为TCP数据包结构，不进行任何验证
+    /// 
+    /// # 安全
+    /// 调用者必须确保缓冲区包含有效的TCP数据包，且长度至少为20字节（最小TCP头部长度）
     pub const fn new_unchecked(buffer: T) -> Packet<T> {
         Packet { buffer }
     }
@@ -171,35 +183,44 @@ impl<T: AsRef<[u8]>> Packet<T> {
         self.buffer
     }
 
-    /// Return the source port field.
+    /// 获取TCP源端口号
+    /// 源端口标识发送方的应用程序端点，0-1023为知名端口，1024-49151为注册端口
     #[inline]
     pub fn src_port(&self) -> u16 {
         let data = self.buffer.as_ref();
         NetworkEndian::read_u16(&data[field::SRC_PORT])
     }
 
-    /// Return the destination port field.
+        /// 获取TCP目的端口号
+    /// 目的端口标识接收方的应用程序端点，0-1023为知名端口，1024-49151为注册端口
+    /// 常用端口：80(HTTP)、443(HTTPS)、22(SSH)、25(SMTP)、110(POP3)
     #[inline]
     pub fn dst_port(&self) -> u16 {
         let data = self.buffer.as_ref();
         NetworkEndian::read_u16(&data[field::DST_PORT])
     }
 
-    /// Return the sequence number field.
+    /// 获取TCP序列号
+    /// 序列号用于确保TCP数据的有序传输，标识发送数据的字节流位置
+    /// 初始序列号(ISN)在连接建立时随机选择，后续每个字节都会递增序列号
     #[inline]
     pub fn seq_number(&self) -> SeqNumber {
         let data = self.buffer.as_ref();
         SeqNumber(NetworkEndian::read_i32(&data[field::SEQ_NUM]))
     }
 
-    /// Return the acknowledgement number field.
+    /// 获取TCP确认号
+    /// 确认号表示期望接收的下一个字节序列号，用于可靠传输确认
+    /// 仅在ACK标志位设置时有效，确认已成功接收的所有数据
     #[inline]
     pub fn ack_number(&self) -> SeqNumber {
         let data = self.buffer.as_ref();
         SeqNumber(NetworkEndian::read_i32(&data[field::ACK_NUM]))
     }
 
-    /// Return the FIN flag.
+    /// 获取FIN标志位
+    /// FIN标志表示发送方已完成数据发送，用于优雅关闭TCP连接
+    /// 当FIN=1时，表示发送方没有更多数据要发送
     #[inline]
     pub fn fin(&self) -> bool {
         let data = self.buffer.as_ref();
@@ -207,7 +228,9 @@ impl<T: AsRef<[u8]>> Packet<T> {
         raw & field::FLG_FIN != 0
     }
 
-    /// Return the SYN flag.
+    /// 获取SYN标志位
+    /// SYN标志用于建立TCP连接时的序列号同步
+    /// 在三次握手过程中，SYN=1表示这是一个连接请求或连接接受报文
     #[inline]
     pub fn syn(&self) -> bool {
         let data = self.buffer.as_ref();
@@ -231,7 +254,9 @@ impl<T: AsRef<[u8]>> Packet<T> {
         raw & field::FLG_PSH != 0
     }
 
-    /// Return the ACK flag.
+    /// 获取ACK标志位
+    /// ACK标志表示确认号字段有效，用于确认已接收的数据
+    /// 除了初始SYN包外，所有TCP数据包都应该设置ACK=1
     #[inline]
     pub fn ack(&self) -> bool {
         let data = self.buffer.as_ref();
@@ -271,7 +296,9 @@ impl<T: AsRef<[u8]>> Packet<T> {
         raw & field::FLG_NS != 0
     }
 
-    /// Return the header length, in octets.
+    /// 获取TCP头部长度（以字节为单位）
+    /// TCP头部长度以32位字（4字节）为单位，最小值为5（20字节），最大值为15（60字节）
+    /// 头部长度字段位于FLAGS字段的高4位，需要乘以4转换为字节数
     #[inline]
     pub fn header_len(&self) -> u8 {
         let data = self.buffer.as_ref();
@@ -384,7 +411,9 @@ impl<T: AsRef<[u8]>> Packet<T> {
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> Packet<&'a T> {
-    /// Return a pointer to the options.
+        /// 返回选项字段的指针
+    /// 
+    /// 获取TCP头部中选项部分的数据，选项长度由头部长度决定
     #[inline]
     pub fn options(&self) -> &'a [u8] {
         let header_len = self.header_len();
@@ -392,7 +421,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Packet<&'a T> {
         &data[field::OPTIONS(header_len)]
     }
 
-    /// Return a pointer to the payload.
+        /// 返回负载数据的指针
+    /// 
+    /// 获取TCP数据包中应用层数据部分，位于TCP头部之后
     #[inline]
     pub fn payload(&self) -> &'a [u8] {
         let header_len = self.header_len() as usize;
