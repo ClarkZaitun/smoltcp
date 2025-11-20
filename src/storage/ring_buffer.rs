@@ -1,5 +1,5 @@
-// Some of the functions in ring buffer is marked as #[must_use]. It notes that
-// these functions may have side effects, and it's implemented by [RFC 1940].
+// 环形缓冲区中的一些函数被标记为 #[must_use]。这表示这些函数可能有副作用，
+// 该特性由 [RFC 1940] 实现。
 // [RFC 1940]: https://github.com/rust-lang/rust/issues/43302
 
 use core::cmp;
@@ -9,31 +9,29 @@ use crate::storage::Resettable;
 
 use super::{Empty, Full};
 
-/// A ring buffer.
+/// 环形缓冲区。
 ///
-/// This ring buffer implementation provides many ways to interact with it:
+/// 这个环形缓冲区实现提供了多种交互方式：
 ///
-///   * Enqueueing or dequeueing one element from corresponding side of the buffer;
-///   * Enqueueing or dequeueing a slice of elements from corresponding side of the buffer;
-///   * Accessing allocated and unallocated areas directly.
+///   * 从缓冲区的对应侧入队或出队单个元素；
+///   * 从缓冲区的对应侧入队或出队元素切片；
+///   * 直接访问已分配和未分配的区域。
 ///
-/// It is also zero-copy; all methods provide references into the buffer's storage.
-/// Note that all references are mutable; it is considered more important to allow
-/// in-place processing than to protect from accidental mutation.
+/// 它也是零拷贝的；所有方法都提供对缓冲区存储的引用。
+/// 注意所有引用都是可变的；允许就地处理被认为比防止意外修改更重要。
 ///
-/// This implementation is suitable for both simple uses such as a FIFO queue
-/// of UDP packets, and advanced ones such as a TCP reassembly buffer.
+/// 这个实现既适用于简单的用途，如UDP数据包的FIFO队列，也适用于高级用途，如TCP重组缓冲区。
 #[derive(Debug)]
 pub struct RingBuffer<'a, T: 'a> {
-    storage: ManagedSlice<'a, T>,
-    read_at: usize,
-    length: usize,
+    storage: ManagedSlice<'a, T>,  // 存储元素的托管切片
+    read_at: usize,                   // 读取位置索引
+    length: usize,                    // 当前长度
 }
 
 impl<'a, T: 'a> RingBuffer<'a, T> {
-    /// Create a ring buffer with the given storage.
+    /// 使用给定的存储创建环形缓冲区。
     ///
-    /// During creation, every element in `storage` is reset.
+    /// 创建期间，`storage` 中的每个元素都会被重置。
     pub fn new<S>(storage: S) -> RingBuffer<'a, T>
     where
         S: Into<ManagedSlice<'a, T>>,
@@ -45,18 +43,18 @@ impl<'a, T: 'a> RingBuffer<'a, T> {
         }
     }
 
-    /// Clear the ring buffer.
+    /// 清空环形缓冲区。
     pub fn clear(&mut self) {
         self.read_at = 0;
         self.length = 0;
     }
 
-    /// Return the maximum number of elements in the ring buffer.
+    /// 返回环形缓冲区中的最大元素数量。
     pub fn capacity(&self) -> usize {
         self.storage.len()
     }
 
-    /// Clear the ring buffer, and reset every element.
+    /// 清空环形缓冲区，并重置每个元素。
     pub fn reset(&mut self)
     where
         T: Resettable,
@@ -67,34 +65,34 @@ impl<'a, T: 'a> RingBuffer<'a, T> {
         }
     }
 
-    /// Return the current number of elements in the ring buffer.
+    /// 返回环形缓冲区中当前的元素数量。
     pub fn len(&self) -> usize {
         self.length
     }
 
-    /// Return the number of elements that can be added to the ring buffer.
+    /// 返回可以添加到环形缓冲区的元素数量。
     pub fn window(&self) -> usize {
         self.capacity() - self.len()
     }
 
-    /// Return the largest number of elements that can be added to the buffer
-    /// without wrapping around (i.e. in a single `enqueue_many` call).
+    /// 返回在不绕回的情况下可以添加到缓冲区的最大元素数量
+    /// （即在单次 `enqueue_many` 调用中）。
     pub fn contiguous_window(&self) -> usize {
         cmp::min(self.window(), self.capacity() - self.get_idx(self.length))
     }
 
-    /// Query whether the buffer is empty.
+    /// 查询缓冲区是否为空。
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    /// Query whether the buffer is full.
+    /// 查询缓冲区是否已满。
     pub fn is_full(&self) -> bool {
         self.window() == 0
     }
 
-    /// Shorthand for `(self.read + idx) % self.capacity()` with an
-    /// additional check to ensure that the capacity is not zero.
+    /// `(self.read + idx) % self.capacity()` 的简写形式，带有
+    /// 确保容量不为零的额外检查。
     fn get_idx(&self, idx: usize) -> usize {
         let len = self.capacity();
         if len > 0 {
@@ -104,18 +102,18 @@ impl<'a, T: 'a> RingBuffer<'a, T> {
         }
     }
 
-    /// Shorthand for `(self.read + idx) % self.capacity()` with no
-    /// additional checks to ensure the capacity is not zero.
+    /// `(self.read + idx) % self.capacity()` 的简写形式，没有
+    /// 确保容量不为零的额外检查。
     fn get_idx_unchecked(&self, idx: usize) -> usize {
         (self.read_at + idx) % self.capacity()
     }
 }
 
-/// This is the "discrete" ring buffer interface: it operates with single elements,
-/// and boundary conditions (empty/full) are errors.
+/// 这是"离散"环形缓冲区接口：它操作单个元素，
+/// 边界条件（空/满）是错误。
 impl<'a, T: 'a> RingBuffer<'a, T> {
-    /// Call `f` with a single buffer element, and enqueue the element if `f`
-    /// returns successfully, or return `Err(Full)` if the buffer is full.
+    /// 使用单个缓冲区元素调用 `f`，如果 `f` 返回成功则入队该元素，
+    /// 如果缓冲区已满则返回 `Err(Full)`。
     pub fn enqueue_one_with<'b, R, E, F>(&'b mut self, f: F) -> Result<Result<R, E>, Full>
     where
         F: FnOnce(&'b mut T) -> Result<R, E>,
@@ -132,16 +130,16 @@ impl<'a, T: 'a> RingBuffer<'a, T> {
         Ok(res)
     }
 
-    /// Enqueue a single element into the buffer, and return a reference to it,
-    /// or return `Err(Full)` if the buffer is full.
+    /// 将单个元素入队到缓冲区，并返回对它的引用，
+    /// 如果缓冲区已满则返回 `Err(Full)`。
     ///
-    /// This function is a shortcut for `ring_buf.enqueue_one_with(Ok)`.
+    /// 这个函数是 `ring_buf.enqueue_one_with(Ok)` 的快捷方式。
     pub fn enqueue_one(&mut self) -> Result<&mut T, Full> {
         self.enqueue_one_with(Ok)?
     }
 
-    /// Call `f` with a single buffer element, and dequeue the element if `f`
-    /// returns successfully, or return `Err(Empty)` if the buffer is empty.
+    /// 使用单个缓冲区元素调用 `f`，如果 `f` 返回成功则出队该元素，
+    /// 如果缓冲区为空则返回 `Err(Empty)`。
     pub fn dequeue_one_with<'b, R, E, F>(&'b mut self, f: F) -> Result<Result<R, E>, Empty>
     where
         F: FnOnce(&'b mut T) -> Result<R, E>,
@@ -160,31 +158,31 @@ impl<'a, T: 'a> RingBuffer<'a, T> {
         Ok(res)
     }
 
-    /// Dequeue an element from the buffer, and return a reference to it,
-    /// or return `Err(Empty)` if the buffer is empty.
+    /// 从缓冲区出队一个元素，并返回对它的引用，
+    /// 如果缓冲区为空则返回 `Err(Empty)`。
     ///
-    /// This function is a shortcut for `ring_buf.dequeue_one_with(Ok)`.
+    /// 这个函数是 `ring_buf.dequeue_one_with(Ok)` 的快捷方式。
     pub fn dequeue_one(&mut self) -> Result<&mut T, Empty> {
         self.dequeue_one_with(Ok)?
     }
 }
 
-/// This is the "continuous" ring buffer interface: it operates with element slices,
-/// and boundary conditions (empty/full) simply result in empty slices.
+/// 这是"连续"环形缓冲区接口：它使用元素切片操作，
+/// 边界条件（空/满）简单地导致空切片。
 impl<'a, T: 'a> RingBuffer<'a, T> {
-    /// Call `f` with the largest contiguous slice of unallocated buffer elements,
-    /// and enqueue the amount of elements returned by `f`.
+    /// 使用最大的未分配缓冲区元素连续切片调用 `f`，
+    /// 并将 `f` 返回的元素数量入队。
     ///
     /// # Panics
-    /// This function panics if the amount of elements returned by `f` is larger
-    /// than the size of the slice passed into it.
+    /// 如果 `f` 返回的元素数量大于传入的切片大小，
+    /// 此函数会 panic。
     pub fn enqueue_many_with<'b, R, F>(&'b mut self, f: F) -> (usize, R)
     where
         F: FnOnce(&'b mut [T]) -> (usize, R),
     {
         if self.length == 0 {
-            // Ring is currently empty. Reset `read_at` to optimize
-            // for contiguous space.
+            // 环形缓冲区当前为空。重置 `read_at` 以优化
+            // 连续空间。
             self.read_at = 0;
         }
 
@@ -196,11 +194,11 @@ impl<'a, T: 'a> RingBuffer<'a, T> {
         (size, result)
     }
 
-    /// Enqueue a slice of elements up to the given size into the buffer,
-    /// and return a reference to them.
+    /// 将给定大小的元素切片入队到缓冲区，
+    /// 并返回对它们的引用。
     ///
-    /// This function may return a slice smaller than the given size
-    /// if the free space in the buffer is not contiguous.
+    /// 如果缓冲区中的空闲空间不是连续的，
+    /// 此函数可能返回一个小于给定大小的切片。
     #[must_use]
     pub fn enqueue_many(&mut self, size: usize) -> &mut [T] {
         self.enqueue_many_with(|buf| {
@@ -210,8 +208,8 @@ impl<'a, T: 'a> RingBuffer<'a, T> {
         .1
     }
 
-    /// Enqueue as many elements from the given slice into the buffer as possible,
-    /// and return the amount of elements that could fit.
+    /// 从给定切片中尽可能多地将元素入队到缓冲区，
+    /// 并返回能够容纳的元素数量。
     #[must_use]
     pub fn enqueue_slice(&mut self, data: &[T]) -> usize
     where
@@ -230,12 +228,12 @@ impl<'a, T: 'a> RingBuffer<'a, T> {
         size_1 + size_2
     }
 
-    /// Call `f` with the largest contiguous slice of allocated buffer elements,
-    /// and dequeue the amount of elements returned by `f`.
+    /// 使用最大的已分配缓冲区元素连续切片调用 `f`，
+    /// 并将 `f` 返回的元素数量出队。
     ///
     /// # Panics
-    /// This function panics if the amount of elements returned by `f` is larger
-    /// than the size of the slice passed into it.
+    /// 如果 `f` 返回的元素数量大于传入的切片大小，
+    /// 此函数会 panic。
     pub fn dequeue_many_with<'b, R, F>(&'b mut self, f: F) -> (usize, R)
     where
         F: FnOnce(&'b mut [T]) -> (usize, R),
@@ -253,11 +251,11 @@ impl<'a, T: 'a> RingBuffer<'a, T> {
         (size, result)
     }
 
-    /// Dequeue a slice of elements up to the given size from the buffer,
-    /// and return a reference to them.
+    /// 从缓冲区出队给定大小的元素切片，
+    /// 并返回对它们的引用。
     ///
-    /// This function may return a slice smaller than the given size
-    /// if the allocated space in the buffer is not contiguous.
+    /// 如果缓冲区中的已分配空间不是连续的，
+    /// 此函数可能返回一个小于给定大小的切片。
     #[must_use]
     pub fn dequeue_many(&mut self, size: usize) -> &mut [T] {
         self.dequeue_many_with(|buf| {
@@ -267,8 +265,8 @@ impl<'a, T: 'a> RingBuffer<'a, T> {
         .1
     }
 
-    /// Dequeue as many elements from the buffer into the given slice as possible,
-    /// and return the amount of elements that could fit.
+    /// 从缓冲区中尽可能多地将元素出队到给定切片中，
+    /// 并返回能够容纳的元素数量。
     #[must_use]
     pub fn dequeue_slice(&mut self, data: &mut [T]) -> usize
     where
@@ -288,24 +286,24 @@ impl<'a, T: 'a> RingBuffer<'a, T> {
     }
 }
 
-/// This is the "random access" ring buffer interface: it operates with element slices,
-/// and allows to access elements of the buffer that are not adjacent to its head or tail.
+/// 这是"随机访问"环形缓冲区接口：它使用元素切片操作，
+/// 并允许访问缓冲区中不与其头部或尾部相邻的元素。
 impl<'a, T: 'a> RingBuffer<'a, T> {
-    /// Return the largest contiguous slice of unallocated buffer elements starting
-    /// at the given offset past the last allocated element, and up to the given size.
+    /// 返回从给定偏移量（越过最后一个已分配元素）开始的、
+    /// 最大的未分配缓冲区元素连续切片，直到给定大小。
     #[must_use]
     pub fn get_unallocated(&mut self, offset: usize, mut size: usize) -> &mut [T] {
         let start_at = self.get_idx(self.length + offset);
-        // We can't access past the end of unallocated data.
+        // 我们不能访问超过未分配数据末尾的位置。
         if offset > self.window() {
             return &mut [];
         }
-        // We can't enqueue more than there is free space.
+        // 我们不能入队超过空闲空间的数量。
         let clamped_window = self.window() - offset;
         if size > clamped_window {
             size = clamped_window
         }
-        // We can't contiguously enqueue past the end of the storage.
+        // 我们不能连续地入队超过存储末尾的位置。
         let until_end = self.capacity() - start_at;
         if size > until_end {
             size = until_end
@@ -314,9 +312,9 @@ impl<'a, T: 'a> RingBuffer<'a, T> {
         &mut self.storage[start_at..start_at + size]
     }
 
-    /// Write as many elements from the given slice into unallocated buffer elements
-    /// starting at the given offset past the last allocated element, and return
-    /// the amount written.
+    /// 从给定切片中将元素写入未分配缓冲区元素，
+    /// 从给定偏移量（越过最后一个已分配元素）开始，
+    /// 并返回写入的数量。
     #[must_use]
     pub fn write_unallocated(&mut self, offset: usize, data: &[T]) -> usize
     where
@@ -337,30 +335,30 @@ impl<'a, T: 'a> RingBuffer<'a, T> {
         size_1 + size_2
     }
 
-    /// Enqueue the given number of unallocated buffer elements.
+    /// 入队给定数量的未分配缓冲区元素。
     ///
     /// # Panics
-    /// Panics if the number of elements given exceeds the number of unallocated elements.
+    /// 如果给定的元素数量超过未分配元素的数量，则 panic。
     pub fn enqueue_unallocated(&mut self, count: usize) {
         assert!(count <= self.window());
         self.length += count;
     }
 
-    /// Return the largest contiguous slice of allocated buffer elements starting
-    /// at the given offset past the first allocated element, and up to the given size.
+    /// 返回从给定偏移量（越过第一个已分配元素）开始的、
+    /// 最大的已分配缓冲区元素连续切片，直到给定大小。
     #[must_use]
     pub fn get_allocated(&self, offset: usize, mut size: usize) -> &[T] {
         let start_at = self.get_idx(offset);
-        // We can't read past the end of the allocated data.
+        // 我们不能读取超过已分配数据末尾的位置。
         if offset > self.length {
             return &mut [];
         }
-        // We can't read more than we have allocated.
+        // 我们不能读取超过我们已分配的数量。
         let clamped_length = self.length - offset;
         if size > clamped_length {
             size = clamped_length
         }
-        // We can't contiguously dequeue past the end of the storage.
+        // 我们不能连续地出队超过存储末尾的位置。
         let until_end = self.capacity() - start_at;
         if size > until_end {
             size = until_end

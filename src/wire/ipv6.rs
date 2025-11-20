@@ -8,55 +8,61 @@ use crate::wire::ip::pretty_print_ip_payload;
 
 pub use super::IpProtocol as Protocol;
 
-/// Minimum MTU required of all links supporting IPv6. See [RFC 8200 § 5].
+/// IPv6最小MTU（最大传输单元）要求，所有支持IPv6的链路都必须支持的最小数据包大小
+/// 参考RFC 8200第5节：每个IPv6链路都必须能够传输至少1280字节的数据包
 ///
 /// [RFC 8200 § 5]: https://tools.ietf.org/html/rfc8200#section-5
 pub const MIN_MTU: usize = 1280;
 
-/// Size of IPv6 adderess in octets.
+/// IPv6地址的字节大小
 ///
 /// [RFC 8200 § 2]: https://www.rfc-editor.org/rfc/rfc4291#section-2
 pub const ADDR_SIZE: usize = 16;
 
-/// The link-local [all nodes multicast address].
+/// 链路本地所有节点多播地址
 ///
+/// 用于向链路本地范围内的所有节点发送多播消息
 /// [all nodes multicast address]: https://tools.ietf.org/html/rfc4291#section-2.7.1
 pub const LINK_LOCAL_ALL_NODES: Address = Address::new(0xff02, 0, 0, 0, 0, 0, 0, 1);
 
-/// The link-local [all routers multicast address].
+/// 链路本地所有路由器多播地址
 ///
+/// 用于向链路本地范围内的所有路由器发送多播消息
 /// [all routers multicast address]: https://tools.ietf.org/html/rfc4291#section-2.7.1
 pub const LINK_LOCAL_ALL_ROUTERS: Address = Address::new(0xff02, 0, 0, 0, 0, 0, 0, 2);
 
-/// The link-local [all MLVDv2-capable routers multicast address].
+/// 链路本地所有MLDv2能力路由器多播地址
 ///
+/// 用于向支持MLDv2（多播监听发现协议版本2）的路由器发送多播消息
 /// [all MLVDv2-capable routers multicast address]: https://tools.ietf.org/html/rfc3810#section-11
 pub const LINK_LOCAL_ALL_MLDV2_ROUTERS: Address = Address::new(0xff02, 0, 0, 0, 0, 0, 0, 0x16);
 
-/// The link-local [all RPL nodes multicast address].
+/// 链路本地所有RPL节点多播地址
 ///
+/// 用于向支持RPL（IPv6路由协议）的节点发送多播消息
 /// [all RPL nodes multicast address]: https://www.rfc-editor.org/rfc/rfc6550.html#section-20.19
 pub const LINK_LOCAL_ALL_RPL_NODES: Address = Address::new(0xff02, 0, 0, 0, 0, 0, 0, 0x1a);
 
-/// The [scope] of an address.
+/// IPv6多播地址的作用域
 ///
+/// 定义了IPv6多播地址的有效范围，从本地接口到全球范围
 /// [scope]: https://www.rfc-editor.org/rfc/rfc4291#section-2.7
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum MulticastScope {
-    /// Interface Local scope
+    /// 接口本地作用域 - 仅在本机内部有效
     InterfaceLocal = 0x1,
-    /// Link local scope
+    /// 链路本地作用域 - 仅在本地链路有效
     LinkLocal = 0x2,
-    /// Administratively configured
+    /// 管理本地作用域 - 管理员配置的范围
     AdminLocal = 0x4,
-    /// Single site scope
+    /// 站点本地作用域 - 单个站点范围内有效
     SiteLocal = 0x5,
-    /// Organization scope
+    /// 组织本地作用域 - 整个组织范围内有效
     OrganizationLocal = 0x8,
-    /// Global scope
+    /// 全球作用域 - 全球互联网范围内有效
     Global = 0xE,
-    /// Unknown scope
+    /// 未知作用域 - 无法识别的范围
     Unknown = 0xFF,
 }
 
@@ -76,62 +82,76 @@ impl From<u8> for MulticastScope {
 
 pub use core::net::Ipv6Addr as Address;
 
+/// IPv6地址扩展trait
+///
+/// 提供IPv6地址相关的额外功能，包括地址类型判断、作用域查询等
 pub(crate) trait AddressExt {
-    /// Construct an IPv6 address from a sequence of octets, in big-endian.
+    /// 从大端字节序列构造IPv6地址
     ///
-    /// # Panics
-    /// The function panics if `data` is not sixteen octets long.
+    /// # 异常
+    /// 如果`data`长度不是16字节，函数会panic
     fn from_bytes(data: &[u8]) -> Address;
 
-    /// Query whether the IPv6 address is an [unicast address].
+    /// 查询IPv6地址是否为单播地址
     ///
+    /// 单播地址用于标识单个网络接口，与多播和任播地址区分
     /// [unicast address]: https://tools.ietf.org/html/rfc4291#section-2.5
     ///
-    /// `x_` prefix is to avoid a collision with the still-unstable method in `core::ip`.
+    /// `x_`前缀用于避免与`core::ip`中不稳定的方法冲突
     fn x_is_unicast(&self) -> bool;
 
-    /// Query whether the IPv6 address is a [global unicast address].
+    /// 查询IPv6地址是否为全球单播地址
     ///
+    /// 全球单播地址是在全球范围内唯一的地址，可用于互联网通信
     /// [global unicast address]: https://datatracker.ietf.org/doc/html/rfc3587
     fn is_global_unicast(&self) -> bool;
 
-    /// Query whether the IPv6 address is in the [link-local] scope.
+    /// 查询IPv6地址是否在链路本地作用域内
     ///
+    /// 链路本地地址仅在本地链路范围内有效，不能路由到互联网
     /// [link-local]: https://tools.ietf.org/html/rfc4291#section-2.5.6
     fn is_link_local(&self) -> bool;
 
-    /// Query whether the IPv6 address is a [Unique Local Address] (ULA).
+    /// 查询IPv6地址是否为唯一本地地址（ULA）
     ///
+    /// ULA是在私有网络中使用的地址，类似于IPv4的私有地址
     /// [Unique Local Address]: https://tools.ietf.org/html/rfc4193
     ///
-    /// `x_` prefix is to avoid a collision with the still-unstable method in `core::ip`.
+    /// `x_`前缀用于避免与`core::ip`中不稳定的方法冲突
     fn x_is_unique_local(&self) -> bool;
 
-    /// Helper function used to mask an address given a prefix.
+    /// 根据给定前缀掩码地址的辅助函数
     ///
-    /// # Panics
-    /// This function panics if `mask` is greater than 128.
+    /// 返回掩码后的地址字节数组
+    ///
+    /// # 异常
+    /// 如果`mask`大于128，函数会panic
     fn mask(&self, mask: u8) -> [u8; ADDR_SIZE];
 
-    /// The solicited node for the given unicast address.
+    /// 返回给定单播地址的请求节点多播地址
     ///
-    /// # Panics
-    /// This function panics if the given address is not
-    /// unicast.
+    /// 请求节点多播地址用于邻居发现协议中的地址解析
+    ///
+    /// # 异常
+    /// 如果给定地址不是单播地址，函数会panic
     fn solicited_node(&self) -> Address;
 
-    /// Return the scope of the address.
+    /// 返回地址的作用域
     ///
-    /// `x_` prefix is to avoid a collision with the still-unstable method in `core::ip`.
+    /// 根据地址类型返回其在网络中的作用范围
+    /// `x_`前缀用于避免与`core::ip`中不稳定的方法冲突
     fn x_multicast_scope(&self) -> MulticastScope;
 
-    /// Query whether the IPv6 address is a [solicited-node multicast address].
+    /// 查询IPv6地址是否为请求节点多播地址
     ///
+    /// 请求节点多播地址用于IPv6邻居发现协议
     /// [Solicited-node multicast address]: https://datatracker.ietf.org/doc/html/rfc4291#section-2.7.1
     fn is_solicited_node_multicast(&self) -> bool;
 
-    /// If `self` is a CIDR-compatible subnet mask, return `Some(prefix_len)`,
-    /// where `prefix_len` is the number of leading zeroes. Return `None` otherwise.
+    /// 如果`self`是CIDR兼容的子网掩码，返回`Some(prefix_len)`
+    /// 其中`prefix_len`是前导零的数量，否则返回`None`
+    ///
+    /// 用于判断地址是否可以作为有效的子网掩码
     fn prefix_len(&self) -> Option<u8>;
 }
 
@@ -230,27 +250,29 @@ impl AddressExt for Address {
     }
 }
 
-/// A specification of an IPv6 CIDR block, containing an address and a variable-length
-/// subnet masking prefix length.
+/// IPv6 CIDR（无类域间路由）块规范，包含IP地址和可变长子网掩码前缀长度
+///
+/// CIDR表示法：IP地址/前缀长度，如2001:db8::/64
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Cidr {
-    address: Address,
-    prefix_len: u8,
+    address: Address,    // 网络地址
+    prefix_len: u8,      // 前缀长度（0-128）
 }
 
 impl Cidr {
-    /// The [solicited node prefix].
+    /// 请求节点前缀
     ///
+    /// 用于邻居发现协议中的请求节点多播地址
     /// [solicited node prefix]: https://tools.ietf.org/html/rfc4291#section-2.7.1
     pub const SOLICITED_NODE_PREFIX: Cidr = Cidr {
         address: Address::new(0xff02, 0, 0, 0, 0, 1, 0xff00, 0),
         prefix_len: 104,
     };
 
-    /// Create an IPv6 CIDR block from the given address and prefix length.
+    /// 从给定地址和前缀长度创建IPv6 CIDR块
     ///
-    /// # Panics
-    /// This function panics if the prefix length is larger than 128.
+    /// # 异常
+    /// 如果前缀长度大于128，函数会panic
     pub const fn new(address: Address, prefix_len: u8) -> Cidr {
         assert!(prefix_len <= 128);
         Cidr {
@@ -259,20 +281,21 @@ impl Cidr {
         }
     }
 
-    /// Return the address of this IPv6 CIDR block.
+    /// 返回此IPv6 CIDR块的地址
     pub const fn address(&self) -> Address {
         self.address
     }
 
-    /// Return the prefix length of this IPv6 CIDR block.
+    /// 返回此IPv6 CIDR块的前缀长度
     pub const fn prefix_len(&self) -> u8 {
         self.prefix_len
     }
 
-    /// Query whether the subnetwork described by this IPv6 CIDR block contains
-    /// the given address.
+    /// 查询由此IPv6 CIDR块描述的子网是否包含给定地址
+    ///
+    /// 通过比较掩码后的地址来判断地址是否属于该子网
     pub fn contains_addr(&self, addr: &Address) -> bool {
-        // right shift by 128 is not legal
+        // 右移128位是非法的
         if self.prefix_len == 0 {
             return true;
         }
@@ -280,8 +303,9 @@ impl Cidr {
         self.address.mask(self.prefix_len) == addr.mask(self.prefix_len)
     }
 
-    /// Query whether the subnetwork described by this IPV6 CIDR block contains
-    /// the subnetwork described by the given IPv6 CIDR block.
+    /// 查询由此IPv6 CIDR块描述的子网是否包含给定IPv6 CIDR块描述的子网
+    ///
+    /// 判断一个子网是否完全包含在另一个子网内
     pub fn contains_subnet(&self, subnet: &Cidr) -> bool {
         self.prefix_len <= subnet.prefix_len && self.contains_addr(&subnet.address)
     }
@@ -311,63 +335,67 @@ pub struct Packet<T: AsRef<[u8]>> {
     buffer: T,
 }
 
-// Ranges and constants describing the IPv6 header
-//
-// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-// |Version| Traffic Class |           Flow Label                  |
-// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-// |         Payload Length        |  Next Header  |   Hop Limit   |
-// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-// |                                                               |
-// +                                                               +
-// |                                                               |
-// +                         Source Address                        +
-// |                                                               |
-// +                                                               +
-// |                                                               |
-// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-// |                                                               |
-// +                                                               +
-// |                                                               |
-// +                      Destination Address                      +
-// |                                                               |
-// +                                                               +
-// |                                                               |
-// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//
-// See https://tools.ietf.org/html/rfc2460#section-3 for details.
+/// IPv6数据包头字段定义
+///
+/// IPv6数据包头的结构和字段偏移量定义
+///
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/// |Version| Traffic Class |           Flow Label                  |
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/// |         Payload Length        |  Next Header  |   Hop Limit   |
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/// |                                                               |
+/// +                                                               +
+/// |                                                               |
+/// +                         Source Address                        +
+/// |                                                               |
+/// +                                                               +
+/// |                                                               |
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/// |                                                               |
+/// +                                                               +
+/// |                                                               |
+/// +                      Destination Address                      +
+/// |                                                               |
+/// +                                                               +
+/// |                                                               |
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///
+/// 详见 https://tools.ietf.org/html/rfc2460#section-3
 mod field {
     use crate::wire::field::*;
-    // 4-bit version number, 8-bit traffic class, and the
-    // 20-bit flow label.
+    // 4位版本号，8位流量类别，和20位流标签
     pub const VER_TC_FLOW: Field = 0..4;
-    // 16-bit value representing the length of the payload.
-    // Note: Options are included in this length.
+    // 16位有效负载长度值
+    // 注意：选项包含在此长度中
     pub const LENGTH: Field = 4..6;
-    // 8-bit value identifying the type of header following this
-    // one. Note: The same numbers are used in IPv4.
+    // 8位值，标识紧随此头部的下一个头部类型
+    // 注意：IPv4中使用相同的数字
     pub const NXT_HDR: usize = 6;
-    // 8-bit value decremented by each node that forwards this
-    // packet. The packet is discarded when the value is 0.
+    // 8位值，每个转发此数据包的节点都会递减
+    // 当值为0时，数据包被丢弃
     pub const HOP_LIMIT: usize = 7;
-    // IPv6 address of the source node.
+    // 源节点IPv6地址
     pub const SRC_ADDR: Field = 8..24;
-    // IPv6 address of the destination node.
+    // 目标节点IPv6地址
     pub const DST_ADDR: Field = 24..40;
 }
 
-/// Length of an IPv6 header.
+/// IPv6数据包头的长度（40字节）
 pub const HEADER_LEN: usize = field::DST_ADDR.end;
 
 impl<T: AsRef<[u8]>> Packet<T> {
-    /// Create a raw octet buffer with an IPv6 packet structure.
+    /// 创建具有IPv6数据包结构的原始字节缓冲区
+    ///
+    /// 不检查缓冲区长度和有效性，直接创建数据包实例
     #[inline]
     pub const fn new_unchecked(buffer: T) -> Packet<T> {
         Packet { buffer }
     }
 
-    /// Shorthand for a combination of [new_unchecked] and [check_len].
+    /// [new_unchecked]和[check_len]的组合简写
     ///
+    /// 先创建数据包实例，然后检查长度有效性
     /// [new_unchecked]: #method.new_unchecked
     /// [check_len]: #method.check_len
     #[inline]
@@ -377,10 +405,10 @@ impl<T: AsRef<[u8]>> Packet<T> {
         Ok(packet)
     }
 
-    /// Ensure that no accessor method will panic if called.
-    /// Returns `Err(Error)` if the buffer is too short.
+    /// 确保调用访问器方法时不会panic
+    /// 如果缓冲区太短，返回`Err(Error)`
     ///
-    /// The result of this check is invalidated by calling [set_payload_len].
+    /// 调用[set_payload_len]会使此检查结果失效
     ///
     /// [set_payload_len]: #method.set_payload_len
     #[inline]
@@ -393,76 +421,75 @@ impl<T: AsRef<[u8]>> Packet<T> {
         }
     }
 
-    /// Consume the packet, returning the underlying buffer.
+    /// 消费数据包，返回底层缓冲区
     #[inline]
     pub fn into_inner(self) -> T {
         self.buffer
     }
 
-    /// Return the header length.
+    /// 返回数据包头长度（40字节）
     #[inline]
     pub const fn header_len(&self) -> usize {
-        // This is not a strictly necessary function, but it makes
-        // code more readable.
+        // 这不是严格必要的函数，但它使代码更易读
         field::DST_ADDR.end
     }
 
-    /// Return the version field.
+    /// 返回版本字段（总是6）
     #[inline]
     pub fn version(&self) -> u8 {
         let data = self.buffer.as_ref();
         data[field::VER_TC_FLOW.start] >> 4
     }
 
-    /// Return the traffic class.
+    /// 返回流量类别字段
     #[inline]
     pub fn traffic_class(&self) -> u8 {
         let data = self.buffer.as_ref();
         ((NetworkEndian::read_u16(&data[0..2]) & 0x0ff0) >> 4) as u8
     }
 
-    /// Return the flow label field.
+    /// 返回流标签字段
     #[inline]
     pub fn flow_label(&self) -> u32 {
         let data = self.buffer.as_ref();
         NetworkEndian::read_u24(&data[1..4]) & 0x000fffff
     }
 
-    /// Return the payload length field.
+    /// 返回有效负载长度字段
     #[inline]
     pub fn payload_len(&self) -> u16 {
         let data = self.buffer.as_ref();
         NetworkEndian::read_u16(&data[field::LENGTH])
     }
 
-    /// Return the payload length added to the known header length.
+    /// 返回有效负载长度加上已知头部长度的总长度
     #[inline]
     pub fn total_len(&self) -> usize {
         self.header_len() + self.payload_len() as usize
     }
 
-    /// Return the next header field.
+    /// 返回下一个头部字段
     #[inline]
     pub fn next_header(&self) -> Protocol {
         let data = self.buffer.as_ref();
         Protocol::from(data[field::NXT_HDR])
     }
 
-    /// Return the hop limit field.
+    /// 返回跳数限制字段
     #[inline]
     pub fn hop_limit(&self) -> u8 {
         let data = self.buffer.as_ref();
         data[field::HOP_LIMIT]
     }
 
-    /// Return the source address field.
+    /// 返回源地址字段
     #[inline]
     pub fn src_addr(&self) -> Address {
         let data = self.buffer.as_ref();
         Address::from_bytes(&data[field::SRC_ADDR])
     }
 
-    /// Return the destination address field.
+    /// 返回目的地址字段
     #[inline]
     pub fn dst_addr(&self) -> Address {
         let data = self.buffer.as_ref();
@@ -471,7 +498,7 @@ impl<T: AsRef<[u8]>> Packet<T> {
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> Packet<&'a T> {
-    /// Return a pointer to the payload.
+    /// 返回指向有效负载的指针
     #[inline]
     pub fn payload(&self) -> &'a [u8] {
         let data = self.buffer.as_ref();
@@ -481,72 +508,69 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Packet<&'a T> {
 }
 
 impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
-    /// Set the version field.
+    /// 设置版本字段
     #[inline]
     pub fn set_version(&mut self, value: u8) {
         let data = self.buffer.as_mut();
-        // Make sure to retain the lower order bits which contain
-        // the higher order bits of the traffic class
+        // 确保保留低位比特，这些比特包含流量类别的高位
         data[0] = (data[0] & 0x0f) | ((value & 0x0f) << 4);
     }
 
-    /// Set the traffic class field.
+    /// 设置流量类别字段
     #[inline]
     pub fn set_traffic_class(&mut self, value: u8) {
         let data = self.buffer.as_mut();
-        // Put the higher order 4-bits of value in the lower order
-        // 4-bits of the first byte
+        // 将值的高4位放入第一个字节的低4位
         data[0] = (data[0] & 0xf0) | ((value & 0xf0) >> 4);
-        // Put the lower order 4-bits of value in the higher order
-        // 4-bits of the second byte
+        // 将值的低4位放入第二个字节的高4位
         data[1] = (data[1] & 0x0f) | ((value & 0x0f) << 4);
     }
 
-    /// Set the flow label field.
+    /// 设置流标签字段
     #[inline]
     pub fn set_flow_label(&mut self, value: u32) {
         let data = self.buffer.as_mut();
-        // Retain the lower order 4-bits of the traffic class
+        // 保留流量类别的低4位
         let raw = (((data[1] & 0xf0) as u32) << 16) | (value & 0x0fffff);
         NetworkEndian::write_u24(&mut data[1..4], raw);
     }
 
-    /// Set the payload length field.
+    /// 设置有效负载长度字段
     #[inline]
     pub fn set_payload_len(&mut self, value: u16) {
         let data = self.buffer.as_mut();
         NetworkEndian::write_u16(&mut data[field::LENGTH], value);
     }
 
-    /// Set the next header field.
+    /// 设置下一个头部字段
     #[inline]
     pub fn set_next_header(&mut self, value: Protocol) {
         let data = self.buffer.as_mut();
         data[field::NXT_HDR] = value.into();
     }
 
-    /// Set the hop limit field.
+    /// 设置跳数限制字段
     #[inline]
     pub fn set_hop_limit(&mut self, value: u8) {
         let data = self.buffer.as_mut();
         data[field::HOP_LIMIT] = value;
     }
 
-    /// Set the source address field.
+    /// 设置源地址字段
     #[inline]
     pub fn set_src_addr(&mut self, value: Address) {
         let data = self.buffer.as_mut();
         data[field::SRC_ADDR].copy_from_slice(&value.octets());
     }
 
-    /// Set the destination address field.
+    /// 设置目的地址字段
     #[inline]
     pub fn set_dst_addr(&mut self, value: Address) {
         let data = self.buffer.as_mut();
         data[field::DST_ADDR].copy_from_slice(&value.octets());
     }
 
-    /// Return a mutable pointer to the payload.
+    /// 返回指向有效负载的可变指针
     #[inline]
     pub fn payload_mut(&mut self) -> &mut [u8] {
         let range = self.header_len()..self.total_len();
@@ -573,25 +597,29 @@ impl<T: AsRef<[u8]>> AsRef<[u8]> for Packet<T> {
     }
 }
 
-/// A high-level representation of an Internet Protocol version 6 packet header.
+/// IPv6数据包头的高级表示
+///
+/// 提供对IPv6数据包头的抽象表示，包含解析和构造IPv6数据包的功能
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Repr {
-    /// IPv6 address of the source node.
+    /// 源节点的IPv6地址
     pub src_addr: Address,
-    /// IPv6 address of the destination node.
+    /// 目的节点的IPv6地址
     pub dst_addr: Address,
-    /// Protocol contained in the next header.
+    /// 下一个头部中包含的协议
     pub next_header: Protocol,
-    /// Length of the payload including the extension headers.
+    /// 包括扩展头部在内的有效负载长度
     pub payload_len: usize,
-    /// The 8-bit hop limit field.
+    /// 8位跳数限制字段
     pub hop_limit: u8,
 }
 
 impl Repr {
-    /// Parse an Internet Protocol version 6 packet and return a high-level representation.
+    /// 解析IPv6数据包并返回高级表示
+    ///
+    /// 从原始数据包中提取关键字段，创建Repr实例用于进一步处理
     pub fn parse<T: AsRef<[u8]> + ?Sized>(packet: &Packet<&T>) -> Result<Repr> {
-        // Ensure basic accessors will work
+        // 确保基本访问器可以正常工作
         packet.check_len()?;
         if packet.version() != 6 {
             return Err(Error);
@@ -605,16 +633,20 @@ impl Repr {
         })
     }
 
-    /// Return the length of a header that will be emitted from this high-level representation.
+    /// 返回从此高级表示发出的数据包头长度
+    ///
+    /// 计算Repr转换为数据包时所需的缓冲区长度（40字节）
     pub const fn buffer_len(&self) -> usize {
-        // This function is not strictly necessary, but it can make client code more readable.
+        // 这个函数不是严格必要的，但它可以使客户端代码更易读
         field::DST_ADDR.end
     }
 
-    /// Emit a high-level representation into an Internet Protocol version 6 packet.
+    /// 将高级表示发射到IPv6数据包中
+    ///
+    /// 根据Repr实例设置数据包的所有字段，包括版本、地址、协议等
     pub fn emit<T: AsRef<[u8]> + AsMut<[u8]>>(&self, packet: &mut Packet<T>) {
-        // Make no assumptions about the original state of the packet buffer.
-        // Make sure to set every byte.
+        // 不对数据包缓冲区的原始状态做任何假设
+        // 确保设置每个字节
         packet.set_version(6);
         packet.set_traffic_class(0);
         packet.set_flow_label(0);

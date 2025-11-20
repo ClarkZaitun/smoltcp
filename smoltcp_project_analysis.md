@@ -122,6 +122,134 @@ Smoltcp 采用分层架构，主要包括以下层次：
 - **适配层分片**：专为低功耗无线网络设计
 - **mesh网络支持**：支持多跳网络环境中的分片传输
 
+## 超时检测与管理机制
+
+### 超时检测概述
+
+Smoltcp中的超时检测是通过精密的定时器系统实现的，主要用于TCP连接的可靠性保证。系统使用多种类型的定时器来处理不同的网络事件和状态转换。
+
+### 核心时间类型
+
+#### 1. 时间基础类型 (`src/time.rs`)
+- **Instant**: 表示绝对时间点，用于记录事件发生的确切时间
+- **Duration**: 表示相对时间间隔，用于定义各种超时时长
+
+### TCP Socket中的定时器机制
+
+#### Timer枚举类型
+在`src/socket/tcp.rs`中定义了多种定时器状态：
+
+```rust
+enum Timer {
+    Idle { keep_alive_at: Option<Instant> },              // 空闲状态，可选的keep-alive定时
+    Retransmit { expires_at: Instant },                     // 重传定时器
+    FastRetransmit,                                         // 快速重传状态
+    ZeroWindowProbe { expires_at: Instant, delay: Duration }, // 零窗口探测
+    Close { expires_at: Instant },                          // 关闭定时器
+}
+```
+
+#### 超时检查方法
+Timer实现了多个`should_*`方法来检查不同类型的超时：
+
+1. **Keep-alive超时检查**
+```rust
+fn should_keep_alive(&self, timestamp: Instant) -> bool {
+    match *self {
+        Timer::Idle { keep_alive_at: Some(keep_alive_at) } if timestamp >= keep_alive_at => true,
+        _ => false,
+    }
+}
+```
+
+2. **重传超时检查**
+```rust
+fn should_retransmit(&self, timestamp: Instant) -> bool {
+    match *self {
+        Timer::Retransmit { expires_at } if timestamp >= expires_at => true,
+        Timer::FastRetransmit => true,
+        _ => false,
+    }
+}
+```
+
+3. **连接关闭超时检查**
+```rust
+fn should_close(&self, timestamp: Instant) -> bool {
+    match *self {
+        Timer::Close { expires_at } if timestamp >= expires_at => true,
+        _ => false,
+    }
+}
+```
+
+4. **零窗口探测超时检查**
+```rust
+fn should_zero_window_probe(&self, timestamp: Instant) -> bool {
+    match *self {
+        Timer::ZeroWindowProbe { expires_at, .. } if timestamp >= expires_at => true,
+        _ => false,
+    }
+}
+```
+
+### 连接超时检测
+
+#### 主要超时逻辑
+在TCP socket的`dispatch`方法中实现核心的超时检测：
+
+```rust
+fn timed_out(&self, timestamp: Instant) -> bool {
+    match (self.remote_last_ts, self.timeout) {
+        (Some(remote_last_ts), Some(timeout)) => timestamp >= remote_last_ts + timeout,
+        (_, _) => false,
+    }
+}
+```
+
+#### 超时处理流程
+1. **连接超时**: 如果超过设定的timeout时间没有收到远程数据，则中止连接
+2. **重传超时**: 当重传定时器到期时，重新发送未确认的数据
+3. **Keep-alive超时**: 定期发送keep-alive包以维持连接
+4. **零窗口探测**: 当接收窗口为0时，定期探测窗口是否重新打开
+
+### 定时器轮询机制
+
+#### PollAt系统
+使用`PollAt`枚举来指示下次应该轮询的时间：
+
+```rust
+let timeout_poll_at = match (self.remote_last_ts, self.timeout) {
+    (Some(remote_last_ts), Some(timeout)) => PollAt::Time(remote_last_ts + timeout),
+    (_, _) => PollAt::Ingress,
+};
+
+// 选择最早到期的定时器
+*[self.timer.poll_at(), timeout_poll_at, delayed_ack_poll_at]
+    .iter()
+    .min()
+    .unwrap_or(&PollAt::Ingress)
+```
+
+### 关键超时常量
+
+系统中定义了重要的超时参数：
+- **RTTE_INITIAL_RTO**: 初始重传超时时间（1秒）
+- **RTTE_MIN_RTO**: 最小重传超时时间（1秒）
+- **RTTE_MAX_RTO**: 最大重传超时时间（60秒）
+- **CLOSE_DELAY**: 关闭延迟时间（10秒）
+- **ACK_DELAY_DEFAULT**: ACK延迟时间（10毫秒）
+
+### 超时管理的特点
+
+1. **精确时间控制**: 使用`Instant`和`Duration`确保时间计算的精确性
+2. **多定时器协调**: 同时管理多个不同类型的定时器
+3. **事件驱动**: 基于轮询机制，只在需要时进行检查
+4. **零分配**: 所有定时器状态在初始化时分配，运行时无需动态分配
+5. **容错设计**: 各种超时情况都有相应的处理策略
+
+这种精密的超时检测机制确保了TCP连接的可靠性和网络协议的正确实现，是smoltcp网络栈可靠运行的重要保障。
+
 ## 关键技术特点
 
 ### 1. 零分配设计

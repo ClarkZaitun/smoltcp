@@ -14,7 +14,7 @@ impl fmt::Display for TooManyHolesError {
 #[cfg(feature = "std")]
 impl std::error::Error for TooManyHolesError {}
 
-/// A contiguous chunk of absent data, followed by a contiguous chunk of present data.
+/// 一段连续缺失的数据，后面跟着一段连续存在的数据。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Contig {
     hole_size: usize,
@@ -91,9 +91,9 @@ impl Contig {
     }
 }
 
-/// A buffer (re)assembler.
+/// 缓冲区（重新）组装器。
 ///
-/// Currently, up to a hardcoded limit of 4 or 32 holes can be tracked in the buffer.
+/// 目前，缓冲区中最多可以跟踪4个或32个空洞的硬编码限制。
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Assembler {
     contigs: [Contig; ASSEMBLER_MAX_SEGMENT_COUNT],
@@ -132,7 +132,7 @@ impl defmt::Format for Assembler {
 // - All contigs with data must have hole_size != 0, except the first.
 
 impl Assembler {
-    /// Create a new buffer assembler.
+    /// 创建一个新的缓冲区组装器。
     pub const fn new() -> Assembler {
         const EMPTY: Contig = Contig::empty();
         Assembler {
@@ -148,7 +148,7 @@ impl Assembler {
         self.contigs[0]
     }
 
-    /// Return length of the front contiguous range without removing it from the assembler
+    /// 返回前端连续范围的长度而不从组装器中移除它
     pub fn peek_front(&self) -> usize {
         let front = self.front();
         if front.has_hole() { 0 } else { front.data_size }
@@ -158,7 +158,7 @@ impl Assembler {
         self.contigs[self.contigs.len() - 1]
     }
 
-    /// Return whether the assembler contains no data.
+    /// 返回组装器是否不包含数据。
     pub fn is_empty(&self) -> bool {
         !self.front().has_data()
     }
@@ -192,8 +192,8 @@ impl Assembler {
         Ok(&mut self.contigs[at])
     }
 
-    /// Add a new contiguous range to the assembler,
-    /// or return `Err(TooManyHolesError)` if too many discontinuities are already recorded.
+    /// 向组装器添加一个新的连续范围，
+    /// 如果已经记录了太多不连续性则返回 `Err(TooManyHolesError)`。
     pub fn add(&mut self, mut offset: usize, size: usize) -> Result<(), TooManyHolesError> {
         if size == 0 {
             return Ok(());
@@ -201,15 +201,15 @@ impl Assembler {
 
         let mut i = 0;
 
-        // Find index of the contig containing the start of the range.
+        // 查找包含范围起始位置的 contig 索引。
         loop {
             if i == self.contigs.len() {
-                // The new range is after all the previous ranges, but there/s no space to add it.
+                // 新范围在所有之前范围之后，但没有空间添加它。
                 return Err(TooManyHolesError);
             }
             let contig = &mut self.contigs[i];
             if !contig.has_data() {
-                // The new range is after all the previous ranges. Add it.
+                // 新范围在所有之前范围之后。添加它。
                 *contig = Contig::hole_and_data(offset, size);
                 return Ok(());
             }
@@ -222,25 +222,25 @@ impl Assembler {
 
         let contig = &mut self.contigs[i];
         if offset < contig.hole_size {
-            // Range starts within the hole.
+            // 范围开始于空洞内。
 
             if offset + size < contig.hole_size {
-                // Range also ends within the hole.
+                // 范围也结束于空洞内。
                 let new_contig = self.add_contig_at(i)?;
                 new_contig.hole_size = offset;
                 new_contig.data_size = size;
 
-                // Previous contigs[index] got moved to contigs[index+1]
+                // 之前的 contigs[index] 被移动到 contigs[index+1]
                 self.contigs[i + 1].shrink_hole_by(offset + size);
                 return Ok(());
             }
 
-            // The range being added covers both a part of the hole and a part of the data
-            // in this contig, shrink the hole in this contig.
+            // 正在添加的范围覆盖了这个 contig 中的空洞部分和数据部分，
+            // 缩小这个 contig 中的空洞。
             contig.shrink_hole_to(offset);
         }
 
-        // coalesce contigs to the right.
+        // 向右合并 contigs。
         let mut j = i + 1;
         while j < self.contigs.len()
             && self.contigs[j].has_data()
@@ -265,11 +265,11 @@ impl Assembler {
         }
 
         if offset + size > self.contigs[i].total_size() {
-            // The added range still extends beyond the current contig. Increase data size.
+            // 添加的范围仍然超出当前 contig。增加数据大小。
             let left = offset + size - self.contigs[i].total_size();
             self.contigs[i].data_size += left;
 
-            // Decrease hole size of the next, if any.
+            // 减少下一个的空洞大小（如果有的话）。
             if i + 1 < self.contigs.len() && self.contigs[i + 1].has_data() {
                 self.contigs[i + 1].hole_size -= left;
             }
@@ -278,8 +278,8 @@ impl Assembler {
         Ok(())
     }
 
-    /// Remove a contiguous range from the front of the assembler.
-    /// If no such range, return 0.
+    /// 从组装器前端移除一个连续范围。
+    /// 如果没有这样的范围，返回0。
     pub fn remove_front(&mut self) -> usize {
         let front = self.front();
         if front.has_hole() || !front.has_data() {
@@ -291,20 +291,19 @@ impl Assembler {
         }
     }
 
-    /// Add a segment, then remove_front.
+    /// 添加一个段，然后 remove_front。
     ///
-    /// This is equivalent to calling `add` then `remove_front` individually,
-    /// except it's guaranteed to not fail when offset = 0.
-    /// This is required for TCP: we must never drop the next expected segment, or
-    /// the protocol might get stuck.
+    /// 这相当于单独调用 `add` 然后 `remove_front`，
+    /// 除了当 offset = 0 时保证不会失败。
+    /// 这是TCP所必需的：我们绝不能丢弃下一个预期的段，否则
+    /// 协议可能会卡住。
     pub fn add_then_remove_front(
         &mut self,
         offset: usize,
         size: usize,
     ) -> Result<usize, TooManyHolesError> {
-        // This is the only case where a segment at offset=0 would cause the
-        // total amount of contigs to rise (and therefore can potentially cause
-        // a TooManyHolesError). Handle it in a way that is guaranteed to succeed.
+        // 这是唯一一种 offset=0 的段会导致 contigs 总数增加的情况
+        // （因此可能导致 TooManyHolesError）。以保证成功的方式处理它。
         if offset == 0 && size < self.contigs[0].hole_size {
             self.contigs[0].hole_size -= size;
             return Ok(size);
@@ -314,15 +313,14 @@ impl Assembler {
         Ok(self.remove_front())
     }
 
-    /// Iterate over all of the contiguous data ranges.
+    /// 遍历所有连续的数据范围。
     ///
-    /// This is used in calculating what data ranges have been received. The offset indicates the
-    /// number of bytes of contiguous data received before the beginnings of this Assembler.
+    /// 这用于计算已接收的数据范围。偏移量表示在此 Assembler 开始之前接收的连续数据的字节数。
     ///
-    ///    Data        Hole        Data
+    ///    数据        空洞        数据
     /// |--- 100 ---|--- 200 ---|--- 100 ---|
     ///
-    /// An offset of 1500 would return the ranges: ``(1500, 1600), (1800, 1900)``
+    /// 偏移量1500将返回范围：``(1500, 1600), (1800, 1900)``
     pub fn iter_data(&self, first_offset: usize) -> AssemblerIter<'_> {
         AssemblerIter::new(self, first_offset)
     }

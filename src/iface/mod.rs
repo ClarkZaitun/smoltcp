@@ -1,7 +1,7 @@
-/*! Network interface logic.
+/*! 网络接口逻辑。
 
-The `iface` module deals with the *network interfaces*. It filters incoming frames,
-provides lookup and caching of hardware addresses, and handles management packets.
+`iface` 模块处理*网络接口*。它过滤进入的帧，
+提供硬件地址的查找和缓存，并处理管理数据包。
 */
 
 mod fragmentation;

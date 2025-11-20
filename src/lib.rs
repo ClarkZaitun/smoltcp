@@ -1,67 +1,52 @@
 #![cfg_attr(not(any(test, feature = "std")), no_std)]
 #![deny(unsafe_code)]
 
-//! The _smoltcp_ library is built in a layered structure, with the layers corresponding
-//! to the levels of API abstraction. Only the highest layers would be used by a typical
-//! application; however, the goal of _smoltcp_ is not just to provide a simple interface
-//! for writing applications but also to be a toolbox of networking primitives, so
-//! every layer is fully exposed and documented.
+//! _smoltcp_ 库采用分层架构，各层对应不同级别的API抽象。典型应用程序通常只使用最高层；
+//! 然而，smoltcp的目标不仅是为编写应用程序提供简单接口，还要成为网络原语的工具箱，
+//! 因此每一层都完全暴露并有详细文档。
 //!
-//! When discussing networking stacks and layering, often the [OSI model][osi] is invoked.
-//! _smoltcp_ makes no effort to conform to the OSI model as it is not applicable to TCP/IP.
+//! 在讨论网络栈和分层时，经常会提到[OSI模型][osi]。smoltcp不试图遵循OSI模型，因为它不适用于TCP/IP。
 //!
-//! # The socket layer
-//! The socket layer APIs are provided in the module [socket](socket/index.html); currently,
-//! raw, ICMP, TCP, and UDP sockets are provided. The socket API provides the usual primitives,
-//! but necessarily differs in many from the [Berkeley socket API][berk], as the latter was
-//! not designed to be used without heap allocation.
+//! # 套接字层
+//! 套接字层API在模块[socket](socket/index.html)中提供；目前提供原始套接字、ICMP、TCP和UDP套接字。
+//! 套接字API提供常用原语，但由于后者并非为无堆分配使用而设计，因此必然在多方面与
+//! [Berkeley套接字API][berk]有所不同。
 //!
-//! The socket layer provides the buffering, packet construction and validation, and (for
-//! stateful sockets) the state machines, but it is interface-agnostic. An application must
-//! use sockets together with a network interface.
+//! 套接字层提供缓冲、数据包构造和验证，以及（对于有状态套接字）状态机，但它是接口无关的。
+//! 应用程序必须将套接字与网络接口一起使用。
 //!
-//! # The interface layer
-//! The interface layer APIs are provided in the module [iface](iface/index.html); currently,
-//! Ethernet interface is provided.
+//! # 接口层
+//! 接口层API在模块[iface](iface/index.html)中提供；目前提供以太网接口。
 //!
-//! The interface layer handles the control messages, physical addressing and neighbor discovery.
-//! It routes packets to and from sockets.
+//! 接口层处理控制消息、物理寻址和邻居发现。它负责在套接字之间路由数据包。
 //!
-//! # The physical layer
-//! The physical layer APIs are provided in the module [phy](phy/index.html); currently,
-//! raw socket and TAP interface are provided. In addition, two _middleware_ interfaces
-//! are provided: the _tracer device_, which prints a human-readable representation of packets,
-//! and the _fault injector device_, which randomly introduces errors into the transmitted
-//! and received packet sequences.
+//! # 物理层
+//! 物理层API在模块[phy](phy/index.html)中提供；目前提供原始套接字和TAP接口。
+//! 此外，还提供了两个_中间件_接口：_跟踪设备_，它打印数据包的可读表示，
+//! 和_故障注入设备_，它在传输和接收的数据包序列中随机引入错误。
 //!
-//! The physical layer handles interaction with a platform-specific network device.
+//! 物理层处理与平台特定网络设备的交互。
 //!
-//! # The wire layers
-//! Unlike the higher layers, the wire layer APIs will not be used by a typical application.
-//! They however are the bedrock of _smoltcp_, and everything else is built on top of them.
+//! # 线路层
+//! 与较高层不同，典型应用程序不会使用线路层API。然而它们是smoltcp的基石，其他一切都构建在它们之上。
 //!
-//! The wire layer APIs are designed by the principle "make illegal states ir-representable".
-//! If a wire layer object can be constructed, then it can also be parsed from or emitted to
-//! a lower level.
+//! 线路层API的设计原则是"使非法状态无法表示"。如果可以构造线路层对象，那么它也可以从较低层解析或发出到较低层。
 //!
-//! The wire layer APIs also provide _tcpdump_-like pretty printing.
+//! 线路层API还提供类似_tcpdump_的漂亮打印功能。
 //!
-//! ## The representation layer
-//! The representation layer APIs are provided in the module [wire].
+//! ## 表示层
+//! 表示层API在模块[wire]中提供。
 //!
-//! The representation layer exists to reduce the state space of raw packets. Raw packets
-//! may be nonsensical in a multitude of ways: invalid checksums, impossible combinations of flags,
-//! pointers to fields out of bounds, meaningless options... Representations shed all that,
-//! as well as any features not supported by _smoltcp_.
+//! 表示层的存在是为了减少原始数据包的状态空间。原始数据包可能以多种方式毫无意义：
+//! 无效校验和、不可能的标志组合、超出边界的字段指针、无意义的选项...表示层会去除所有这些，
+//! 以及smoltcp不支持的任何特性。
 //!
-//! ## The packet layer
-//! The packet layer APIs are also provided in the module [wire].
+//! ## 数据包层
+//! 数据包层API也在模块[wire]中提供。
 //!
-//! The packet layer exists to provide a more structured way to work with packets than
-//! treating them as sequences of octets. It makes no judgement as to content of the packets,
-//! except where necessary to provide safe access to fields, and strives to implement every
-//! feature ever defined, to ensure that, when the representation layer is unable to make sense
-//! of a packet, it is still logged correctly and in full.
+//! 数据包层的存在是为了提供比将数据包视为字节序列更有结构的方式来处理数据包。
+//! 除了为安全访问字段所必需的情况外，它不对数据包的内容做出判断，并努力实现曾经定义的每个特性，
+//! 以确保当表示层无法理解数据包时，它仍能正确且完整地记录。
 //!
 //! # Minimum Supported Rust Version (MSRV)
 //!

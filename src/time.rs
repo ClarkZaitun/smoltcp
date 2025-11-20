@@ -1,10 +1,9 @@
-/*! Time structures.
+/*! 时间结构体
 
-The `time` module contains structures used to represent both
-absolute and relative time.
+`time`模块包含用于表示绝对时间和相对时间的结构体。
 
- - [Instant] is used to represent absolute time.
- - [Duration] is used to represent relative time.
+ - [Instant]用于表示绝对时间。
+ - [Duration]用于表示相对时间。
 
 [Instant]: struct.Instant.html
 [Duration]: struct.Duration.html
@@ -12,24 +11,23 @@ absolute and relative time.
 
 use core::{fmt, ops};
 
-/// A representation of an absolute time value.
+/// 绝对时间值的表示
 ///
-/// The `Instant` type is a wrapper around a `i64` value that
-/// represents a number of microseconds, monotonically increasing
-/// since an arbitrary moment in time, such as system startup.
+/// `Instant`类型是围绕`i64`值的包装器，
+/// 表示自任意时间点（如系统启动）以来单调递增的微秒数。
 ///
-/// * A value of `0` is inherently arbitrary.
-/// * A value less than `0` indicates a time before the starting
-///   point.
+/// * 值为`0`本质上是任意的。
+/// * 小于`0`的值表示起始点之前的时间。
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Instant {
     micros: i64,
 }
 
 impl Instant {
+    /// 零点时刻常量
     pub const ZERO: Instant = Instant::from_micros_const(0);
 
-    /// Create a new `Instant` from a number of microseconds.
+    /// 从微秒数创建新的`Instant`
     pub fn from_micros<T: Into<i64>>(micros: T) -> Instant {
         Instant {
             micros: micros.into(),
@@ -40,30 +38,30 @@ impl Instant {
         Instant { micros }
     }
 
-    /// Create a new `Instant` from a number of milliseconds.
+    /// 从毫秒数创建新的`Instant`
     pub fn from_millis<T: Into<i64>>(millis: T) -> Instant {
         Instant {
             micros: millis.into() * 1000,
         }
     }
 
-    /// Create a new `Instant` from a number of milliseconds.
+    /// 从毫秒数创建新的`Instant`（常量函数）
     pub const fn from_millis_const(millis: i64) -> Instant {
         Instant {
             micros: millis * 1000,
         }
     }
 
-    /// Create a new `Instant` from a number of seconds.
+    /// 从秒数创建新的`Instant`
     pub fn from_secs<T: Into<i64>>(secs: T) -> Instant {
         Instant {
             micros: secs.into() * 1000000,
         }
     }
 
-    /// Create a new `Instant` from the current [std::time::SystemTime].
+    /// 从当前系统时间创建新的`Instant`
     ///
-    /// See [std::time::SystemTime::now]
+    /// 参见[std::time::SystemTime::now]
     ///
     /// [std::time::SystemTime]: https://doc.rust-lang.org/std/time/struct.SystemTime.html
     /// [std::time::SystemTime::now]: https://doc.rust-lang.org/std/time/struct.SystemTime.html#method.now
@@ -72,31 +70,26 @@ impl Instant {
         Self::from(::std::time::SystemTime::now())
     }
 
-    /// The fractional number of milliseconds that have passed
-    /// since the beginning of time.
+    /// 返回自时间起点以来经过的毫秒小数部分
     pub const fn millis(&self) -> i64 {
         self.micros % 1000000 / 1000
     }
 
-    /// The fractional number of microseconds that have passed
-    /// since the beginning of time.
+    /// 返回自时间起点以来经过的微秒小数部分
     pub const fn micros(&self) -> i64 {
         self.micros % 1000000
     }
 
-    /// The number of whole seconds that have passed since the
-    /// beginning of time.
+    /// 返回自时间起点以来经过的完整秒数
     pub const fn secs(&self) -> i64 {
         self.micros / 1000000
     }
 
-    /// The total number of milliseconds that have passed since
-    /// the beginning of time.
+    /// 返回自时间起点以来经过的总毫秒数
     pub const fn total_millis(&self) -> i64 {
         self.micros / 1000
     }
-    /// The total number of milliseconds that have passed since
-    /// the beginning of time.
+    /// 返回自时间起点以来经过的总微秒数
     pub const fn total_micros(&self) -> i64 {
         self.micros
     }
@@ -176,22 +169,23 @@ impl ops::Sub<Instant> for Instant {
     }
 }
 
-/// A relative amount of time.
+/// 相对时间量
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Duration {
     micros: u64,
 }
 
 impl Duration {
+    /// 零持续时间常量
     pub const ZERO: Duration = Duration::from_micros(0);
-    /// The longest possible duration we can encode.
+    /// 我们能编码的最长持续时间
     pub const MAX: Duration = Duration::from_micros(u64::MAX);
-    /// Create a new `Duration` from a number of microseconds.
+    /// 从微秒数创建新的`Duration`
     pub const fn from_micros(micros: u64) -> Duration {
         Duration { micros }
     }
 
-    /// Create a new `Duration` from a number of milliseconds.
+    /// 从毫秒数创建新的`Duration`
     pub const fn from_millis(millis: u64) -> Duration {
         Duration {
             micros: millis * 1000,

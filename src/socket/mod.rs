@@ -1,14 +1,11 @@
-/*! Communication between endpoints.
+/*! 端点间通信
 
-The `socket` module deals with *network endpoints* and *buffering*.
-It provides interfaces for accessing buffers of data, and protocol state machines
-for filling and emptying these buffers.
+`socket`模块处理*网络端点*和*缓冲*。
+它提供访问数据缓冲区的接口，以及用于填充和清空这些缓冲区的协议状态机。
 
-The programming interface implemented here differs greatly from the common Berkeley socket
-interface. Specifically, in the Berkeley interface the buffering is implicit:
-the operating system decides on the good size for a buffer and manages it.
-The interface implemented by this module uses explicit buffering: you decide on the good
-size for a buffer, allocate it, and let the networking stack use it.
+这里实现的编程接口与常见的Berkeley套接字接口有很大不同。具体来说，在Berkeley接口中缓冲是隐式的：
+操作系统决定缓冲区的大小并管理它。
+本模块实现的接口使用显式缓冲：您决定缓冲区的大小，分配它，并让网络栈使用它。
 */
 
 use crate::iface::Context;
@@ -33,25 +30,25 @@ mod waker;
 #[cfg(feature = "async")]
 pub(crate) use self::waker::WakerRegistration;
 
-/// Gives an indication on the next time the socket should be polled.
+/// 指示套接字下次应该被轮询的时间
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub(crate) enum PollAt {
-    /// The socket needs to be polled immediately.
+    /// 套接字需要立即被轮询
     Now,
-    /// The socket needs to be polled at given [Instant][struct.Instant].
+    /// 套接字需要在给定的[Instant][struct.Instant]时间被轮询
     Time(Instant),
-    /// The socket does not need to be polled unless there are external changes.
+    /// 除非有外部变化，否则套接字不需要被轮询
     Ingress,
 }
 
-/// A network socket.
+/// 各种IP协议类型套接字的抽象
 ///
-/// This enumeration abstracts the various types of sockets based on the IP protocol.
-/// To downcast a `Socket` value to a concrete socket, use the [AnySocket] trait,
-/// e.g. to get `udp::Socket`, call `udp::Socket::downcast(socket)`.
+/// 这个枚举抽象了各种套接字类型，允许它们被存储在集合中。它提供了轮询套接字的通用接口。
+/// 要将 `Socket` 值向下转换为具体套接字，请使用 [AnySocket] trait，
+/// 例如，要获取 `udp::Socket`，请调用 `udp::Socket::downcast(socket)`。
 ///
-/// It is usually more convenient to use [SocketSet::get] instead.
+/// 通常使用 [SocketSet::get] 更方便。
 ///
 /// [AnySocket]: trait.AnySocket.html
 /// [SocketSet::get]: struct.SocketSet.html#method.get
@@ -73,6 +70,9 @@ pub enum Socket<'a> {
 }
 
 impl<'a> Socket<'a> {
+    /// 返回套接字的下次轮询时间
+    ///
+    /// 另见 [SocketSet::poll_at]
     pub(crate) fn poll_at(&self, cx: &mut Context) -> PollAt {
         match self {
             #[cfg(feature = "socket-raw")]
@@ -91,7 +91,7 @@ impl<'a> Socket<'a> {
     }
 }
 
-/// A conversion trait for network sockets.
+/// 套接字的转换trait
 pub trait AnySocket<'a> {
     fn upcast(self) -> Socket<'a>;
     fn downcast<'c>(socket: &'c Socket<'a>) -> Option<&'c Self>

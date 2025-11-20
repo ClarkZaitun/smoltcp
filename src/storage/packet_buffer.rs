@@ -4,7 +4,7 @@ use crate::storage::{Full, RingBuffer};
 
 use super::Empty;
 
-/// Size and header of a packet.
+/// 数据包的大小和头部信息。
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct PacketMetadata<H> {
@@ -13,7 +13,7 @@ pub struct PacketMetadata<H> {
 }
 
 impl<H> PacketMetadata<H> {
-    /// Empty packet description.
+    /// 空数据包描述。
     pub const EMPTY: PacketMetadata<H> = PacketMetadata {
         size: 0,
         header: None,
@@ -38,7 +38,7 @@ impl<H> PacketMetadata<H> {
     }
 }
 
-/// An UDP packet ring buffer.
+/// UDP数据包环形缓冲区。
 #[derive(Debug)]
 pub struct PacketBuffer<'a, H: 'a> {
     metadata_ring: RingBuffer<'a, PacketMetadata<H>>,
@@ -46,10 +46,10 @@ pub struct PacketBuffer<'a, H: 'a> {
 }
 
 impl<'a, H> PacketBuffer<'a, H> {
-    /// Create a new packet buffer with the provided metadata and payload storage.
+    /// 使用提供的元数据和有效载荷存储创建新的数据包缓冲区。
     ///
-    /// Metadata storage limits the maximum _number_ of packets in the buffer and payload
-    /// storage limits the maximum _total size_ of packets.
+    /// 元数据存储限制缓冲区中的最大数据包_数量_，
+    /// 有效载荷存储限制数据包的最大_总大小_。
     pub fn new<MS, PS>(metadata_storage: MS, payload_storage: PS) -> PacketBuffer<'a, H>
     where
         MS: Into<ManagedSlice<'a, PacketMetadata<H>>>,
@@ -61,29 +61,28 @@ impl<'a, H> PacketBuffer<'a, H> {
         }
     }
 
-    /// Query whether the buffer is empty.
+    /// 查询缓冲区是否为空。
     pub fn is_empty(&self) -> bool {
         self.metadata_ring.is_empty()
     }
 
-    /// Query whether the buffer is full.
+    /// 查询缓冲区是否已满。
     pub fn is_full(&self) -> bool {
         self.metadata_ring.is_full()
     }
 
-    // There is currently no enqueue_with() because of the complexity of managing padding
-    // in case of failure.
+    // 目前没有 enqueue_with() 是因为在失败情况下管理填充的复杂性。
 
-    /// Enqueue a single packet with the given header into the buffer, and
-    /// return a reference to its payload, or return `Err(Full)`
-    /// if the buffer is full.
+    /// 将具有给定头部的单个数据包入队到缓冲区，
+    /// 并返回对其有效载荷的引用，如果缓冲区已满
+    /// 则返回 `Err(Full)`。
     pub fn enqueue(&mut self, size: usize, header: H) -> Result<&mut [u8], Full> {
         if self.payload_ring.capacity() < size || self.metadata_ring.is_full() {
             return Err(Full);
         }
 
-        // Ring is currently empty.  Clear it (resetting `read_at`) to maximize
-        // for contiguous space.
+        // 环形缓冲区当前为空。清除它（重置 `read_at`）以最大化
+        // 连续空间。
         if self.payload_ring.is_empty() {
             self.payload_ring.clear();
         }
@@ -95,17 +94,16 @@ impl<'a, H> PacketBuffer<'a, H> {
             return Err(Full);
         } else if contig_window < size {
             if window - contig_window < size {
-                // The buffer length is larger than the current contiguous window
-                // and is larger than the contiguous window will be after adding
-                // the padding necessary to circle around to the beginning of the
-                // ring buffer.
+                // 缓冲区长度大于当前连续窗口，
+                // 并且大于添加必要填充以环绕到
+                // 环形缓冲区开始后的连续窗口。
                 return Err(Full);
             } else {
-                // Add padding to the end of the ring buffer so that the
-                // contiguous window is at the beginning of the ring buffer.
+                // 在环形缓冲区末尾添加填充，使得
+                // 连续窗口位于环形缓冲区的开始处。
                 *self.metadata_ring.enqueue_one()? = PacketMetadata::padding(contig_window);
-                // note(discard): function does not write to the result
-                // enqueued padding buffer location
+                // 注意（丢弃）：函数不会写入结果
+                // 入队的填充缓冲区位置
                 let _buf_enqueued = self.payload_ring.enqueue_many(contig_window);
             }
         }
@@ -117,8 +115,8 @@ impl<'a, H> PacketBuffer<'a, H> {
         Ok(payload_buf)
     }
 
-    /// Call `f` with a packet from the buffer large enough to fit `max_size` bytes. The packet
-    /// is shrunk to the size returned from `f` and enqueued into the buffer.
+    /// 使用缓冲区中足够大以容纳 `max_size` 字节的数据包调用 `f`。
+    /// 数据包被缩小到 `f` 返回的大小并入队到缓冲区。
     pub fn enqueue_with_infallible<'b, F>(
         &'b mut self,
         max_size: usize,
@@ -166,17 +164,17 @@ impl<'a, H> PacketBuffer<'a, H> {
     fn dequeue_padding(&mut self) {
         let _ = self.metadata_ring.dequeue_one_with(|metadata| {
             if metadata.is_padding() {
-                // note(discard): function does not use value of dequeued padding bytes
+                // 注意（丢弃）：函数不使用出队填充字节的值
                 let _buf_dequeued = self.payload_ring.dequeue_many(metadata.size);
-                Ok(()) // dequeue metadata
+                Ok(()) // 出队元数据
             } else {
-                Err(()) // don't dequeue metadata
+                Err(()) // 不出队元数据
             }
         });
     }
 
-    /// Call `f` with a single packet from the buffer, and dequeue the packet if `f`
-    /// returns successfully, or return `Err(EmptyError)` if the buffer is empty.
+    /// 使用缓冲区中的单个数据包调用 `f`，如果 `f`
+    /// 返回成功则出队该数据包，如果缓冲区为空则返回 `Err(EmptyError)`。
     pub fn dequeue_with<'c, R, E, F>(&'c mut self, f: F) -> Result<Result<R, E>, Empty>
     where
         F: FnOnce(&mut H, &'c mut [u8]) -> Result<R, E>,
@@ -200,8 +198,8 @@ impl<'a, H> PacketBuffer<'a, H> {
         })
     }
 
-    /// Dequeue a single packet from the buffer, and return a reference to its payload
-    /// as well as its header, or return `Err(Error::Exhausted)` if the buffer is empty.
+    /// 从缓冲区出队单个数据包，并返回对其有效载荷
+    /// 以及头部的引用，如果缓冲区为空则返回 `Err(Error::Exhausted)`。
     pub fn dequeue(&mut self) -> Result<(H, &mut [u8]), Empty> {
         self.dequeue_padding();
 
@@ -212,10 +210,10 @@ impl<'a, H> PacketBuffer<'a, H> {
         Ok((meta.header.take().unwrap(), payload_buf))
     }
 
-    /// Peek at a single packet from the buffer without removing it, and return a reference to
-    /// its payload as well as its header, or return `Err(Error:Exhausted)` if the buffer is empty.
+    /// 从缓冲区中窥视单个数据包而不移除它，并返回对其
+    /// 有效载荷以及头部的引用，如果缓冲区为空则返回 `Err(Error:Exhausted)`。
     ///
-    /// This function otherwise behaves identically to [dequeue](#method.dequeue).
+    /// 此函数在其他方面与 [dequeue](#method.dequeue) 行为相同。
     pub fn peek(&mut self) -> Result<(&H, &[u8]), Empty> {
         self.dequeue_padding();
 
@@ -229,22 +227,22 @@ impl<'a, H> PacketBuffer<'a, H> {
         }
     }
 
-    /// Return the maximum number packets that can be stored.
+    /// 返回可以存储的最大数据包数量。
     pub fn packet_capacity(&self) -> usize {
         self.metadata_ring.capacity()
     }
 
-    /// Return the maximum number of bytes in the payload ring buffer.
+    /// 返回有效载荷环形缓冲区中的最大字节数。
     pub fn payload_capacity(&self) -> usize {
         self.payload_ring.capacity()
     }
 
-    /// Return the current number of bytes in the payload ring buffer.
+    /// 返回有效载荷环形缓冲区中当前的字节数。
     pub fn payload_bytes_count(&self) -> usize {
         self.payload_ring.len()
     }
 
-    /// Reset the packet buffer and clear any staged.
+    /// 重置数据包缓冲区并清除任何已暂存的。
     #[allow(unused)]
     pub(crate) fn reset(&mut self) {
         self.payload_ring.clear();

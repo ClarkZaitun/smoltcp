@@ -7,7 +7,7 @@ use crate::wire::ip::checksum;
 use crate::wire::{IpAddress, IpProtocol};
 
 /// TCP序列号
-/// 
+///
 /// TCP序列号是一个单调递增的整数，模2^32
 /// 序列号在符号溢出时进行比较没有不连续性
 /// 用于确保TCP数据的有序传输和可靠交付
@@ -89,7 +89,7 @@ impl cmp::PartialOrd for SeqNumber {
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Packet<T: AsRef<[u8]>> {
-    buffer: T,  // 底层字节缓冲区
+    buffer: T, // 底层字节缓冲区
 }
 
 /// TCP头部字段偏移定义
@@ -100,14 +100,14 @@ mod field {
     use crate::wire::field::*;
 
     // TCP头部固定字段（20字节）
-    pub const SRC_PORT: Field = 0..2;      // 源端口号 = 2字节
-    pub const DST_PORT: Field = 2..4;      // 目的端口号 = 2字节
-    pub const SEQ_NUM: Field = 4..8;       // 序列号 = 4字节
-    pub const ACK_NUM: Field = 8..12;      // 确认号 = 4字节
-    pub const FLAGS: Field = 12..14;       // 标志位 = 2字节
-    pub const WIN_SIZE: Field = 14..16;    // 窗口大小 = 2字节
-    pub const CHECKSUM: Field = 16..18;    // 校验和 = 2字节
-    pub const URGENT: Field = 18..20;     // 紧急指针 = 2字节
+    pub const SRC_PORT: Field = 0..2; // 源端口号 = 2字节
+    pub const DST_PORT: Field = 2..4; // 目的端口号 = 2字节
+    pub const SEQ_NUM: Field = 4..8; // 序列号 = 4字节
+    pub const ACK_NUM: Field = 8..12; // 确认号 = 4字节
+    pub const FLAGS: Field = 12..14; // 标志位 = 2字节
+    pub const WIN_SIZE: Field = 14..16; // 窗口大小 = 2字节
+    pub const CHECKSUM: Field = 16..18; // 校验和 = 2字节
+    pub const URGENT: Field = 18..20; // 紧急指针 = 2字节
 
     // 动态选项字段范围
     pub const fn OPTIONS(length: u8) -> Field {
@@ -115,31 +115,31 @@ mod field {
     }
 
     // TCP标志位定义（在FLAGS字段中）
-    pub const FLG_FIN: u16 = 0x001;  // FIN：连接终止
-    pub const FLG_SYN: u16 = 0x002;  // SYN：同步序列号，建立连接
-    pub const FLG_RST: u16 = 0x004;  // RST：重置连接
-    pub const FLG_PSH: u16 = 0x008;  // PSH：推送数据
-    pub const FLG_ACK: u16 = 0x010;  // ACK：确认字段有效
-    pub const FLG_URG: u16 = 0x020;  // URG：紧急指针有效
-    pub const FLG_ECE: u16 = 0x040;  // ECE：ECN回显
-    pub const FLG_CWR: u16 = 0x080;  // CWR：拥塞窗口减少
-    pub const FLG_NS: u16 = 0x100;   // NS：噪声抑制
+    pub const FLG_FIN: u16 = 0x001; // FIN：连接终止
+    pub const FLG_SYN: u16 = 0x002; // SYN：同步序列号，建立连接
+    pub const FLG_RST: u16 = 0x004; // RST：重置连接
+    pub const FLG_PSH: u16 = 0x008; // PSH：推送数据
+    pub const FLG_ACK: u16 = 0x010; // ACK：确认字段有效
+    pub const FLG_URG: u16 = 0x020; // URG：紧急指针有效
+    pub const FLG_ECE: u16 = 0x040; // ECE：ECN回显
+    pub const FLG_CWR: u16 = 0x080; // CWR：拥塞窗口减少
+    pub const FLG_NS: u16 = 0x100; // NS：噪声抑制
 
     // TCP选项类型
-    pub const OPT_END: u8 = 0x00;     // 选项结束
-    pub const OPT_NOP: u8 = 0x01;     // 无操作（填充）
-    pub const OPT_MSS: u8 = 0x02;     // 最大段大小
-    pub const OPT_WS: u8 = 0x03;      // 窗口缩放
+    pub const OPT_END: u8 = 0x00; // 选项结束
+    pub const OPT_NOP: u8 = 0x01; // 无操作（填充）
+    pub const OPT_MSS: u8 = 0x02; // 最大段大小
+    pub const OPT_WS: u8 = 0x03; // 窗口缩放
     pub const OPT_SACKPERM: u8 = 0x04; // 选择性确认允许
     pub const OPT_SACKRNG: u8 = 0x05; // 选择性确认范围
-    pub const OPT_TSTAMP: u8 = 0x08;  // 时间戳
+    pub const OPT_TSTAMP: u8 = 0x08; // 时间戳
 }
 
 pub const HEADER_LEN: usize = field::URGENT.end;
 
 impl<T: AsRef<[u8]>> Packet<T> {
     /// 将原始字节缓冲区包装为TCP数据包结构，不进行任何验证
-    /// 
+    ///
     /// # 安全
     /// 调用者必须确保缓冲区包含有效的TCP数据包，且长度至少为20字节（最小TCP头部长度）
     pub const fn new_unchecked(buffer: T) -> Packet<T> {
@@ -191,7 +191,7 @@ impl<T: AsRef<[u8]>> Packet<T> {
         NetworkEndian::read_u16(&data[field::SRC_PORT])
     }
 
-        /// 获取TCP目的端口号
+    /// 获取TCP目的端口号
     /// 目的端口标识接收方的应用程序端点，0-1023为知名端口，1024-49151为注册端口
     /// 常用端口：80(HTTP)、443(HTTPS)、22(SSH)、25(SMTP)、110(POP3)
     #[inline]
@@ -238,7 +238,9 @@ impl<T: AsRef<[u8]>> Packet<T> {
         raw & field::FLG_SYN != 0
     }
 
-    /// Return the RST flag.
+    /// 获取RST标志位
+    /// RST标志用于强制重置TCP连接，通常在出现错误或需要中止连接时设置
+    /// 当RST=1时，表示连接出现严重错误，必须立即释放
     #[inline]
     pub fn rst(&self) -> bool {
         let data = self.buffer.as_ref();
@@ -246,7 +248,9 @@ impl<T: AsRef<[u8]>> Packet<T> {
         raw & field::FLG_RST != 0
     }
 
-    /// Return the PSH flag.
+    /// 获取PSH标志位
+    /// PSH标志表示接收方应该立即将数据推送给应用层，而不是等待缓冲区填满
+    /// 用于确保数据及时传输到应用程序，常用于交互式应用
     #[inline]
     pub fn psh(&self) -> bool {
         let data = self.buffer.as_ref();
@@ -264,7 +268,9 @@ impl<T: AsRef<[u8]>> Packet<T> {
         raw & field::FLG_ACK != 0
     }
 
-    /// Return the URG flag.
+    /// 获取URG标志位
+    /// URG标志表示紧急指针字段有效，用于指示数据包中包含紧急数据
+    /// 紧急数据应该被优先处理，常用于传输重要控制信息
     #[inline]
     pub fn urg(&self) -> bool {
         let data = self.buffer.as_ref();
@@ -272,7 +278,9 @@ impl<T: AsRef<[u8]>> Packet<T> {
         raw & field::FLG_URG != 0
     }
 
-    /// Return the ECE flag.
+    /// 获取ECE标志位
+    /// ECE标志用于ECN（显式拥塞通知）机制，表示网络中存在拥塞
+    /// 在TCP三次握手时设置，表示支持ECN功能
     #[inline]
     pub fn ece(&self) -> bool {
         let data = self.buffer.as_ref();
@@ -280,7 +288,9 @@ impl<T: AsRef<[u8]>> Packet<T> {
         raw & field::FLG_ECE != 0
     }
 
-    /// Return the CWR flag.
+    /// 获取CWR标志位
+    /// CWR标志表示发送方已经接收到ECE标志，并降低了发送速率
+    /// 与ECN机制配合使用，用于拥塞控制
     #[inline]
     pub fn cwr(&self) -> bool {
         let data = self.buffer.as_ref();
@@ -288,7 +298,9 @@ impl<T: AsRef<[u8]>> Packet<T> {
         raw & field::FLG_CWR != 0
     }
 
-    /// Return the NS flag.
+    /// 获取NS标志位
+    /// NS标志用于ECN-nonce机制，提供对ECN的额外保护
+    /// 用于检测中间设备是否不当修改了ECN标志
     #[inline]
     pub fn ns(&self) -> bool {
         let data = self.buffer.as_ref();
@@ -306,28 +318,36 @@ impl<T: AsRef<[u8]>> Packet<T> {
         ((raw >> 12) * 4) as u8
     }
 
-    /// Return the window size field.
+    /// 获取窗口大小字段
+    /// 窗口大小表示接收方当前可用的接收缓冲区大小，用于流量控制
+    /// 单位是字节，最大值为65535，可以通过窗口扩大选项扩展到更大的值
     #[inline]
     pub fn window_len(&self) -> u16 {
         let data = self.buffer.as_ref();
         NetworkEndian::read_u16(&data[field::WIN_SIZE])
     }
 
-    /// Return the checksum field.
+    /// 获取校验和字段
+    /// TCP校验和用于检测数据在传输过程中是否发生错误
+    /// 覆盖TCP头部、数据和伪头部（源IP、目的IP、协议和TCP长度）
     #[inline]
     pub fn checksum(&self) -> u16 {
         let data = self.buffer.as_ref();
         NetworkEndian::read_u16(&data[field::CHECKSUM])
     }
 
-    /// Return the urgent pointer field.
+    /// 获取紧急指针字段
+    /// 紧急指针指示数据包中紧急数据的结束位置，仅在URG标志设置时有效
+    /// 紧急数据应该被优先处理，常用于传输重要控制信息
     #[inline]
     pub fn urgent_at(&self) -> u16 {
         let data = self.buffer.as_ref();
         NetworkEndian::read_u16(&data[field::URGENT])
     }
 
-    /// Return the length of the segment, in terms of sequence space.
+    /// 返回TCP段的长度（以序列空间为单位）
+    /// TCP段长度包括数据长度和SYN/FIN标志的序列空间占用
+    /// SYN和FIN标志各占1个序列号，用于可靠传输
     pub fn segment_len(&self) -> usize {
         let data = self.buffer.as_ref();
         let mut length = data.len() - self.header_len() as usize;
@@ -340,7 +360,9 @@ impl<T: AsRef<[u8]>> Packet<T> {
         length
     }
 
-    /// Returns whether the selective acknowledgement SYN flag is set or not.
+    /// 返回是否允许选择性确认（SACK）
+    /// SACK允许接收方确认非连续的TCP段，提高网络效率
+    /// 通过检查TCP选项中的SACK允许选项来确定
     pub fn selective_ack_permitted(&self) -> Result<bool> {
         let data = self.buffer.as_ref();
         let mut options = &data[field::OPTIONS(self.header_len())];
@@ -354,8 +376,9 @@ impl<T: AsRef<[u8]>> Packet<T> {
         Ok(false)
     }
 
-    /// Return the selective acknowledgement ranges, if any. If there are none in the packet, an
-    /// array of ``None`` values will be returned.
+    /// 返回选择性确认（SACK）范围数组
+    /// SACK范围表示已成功接收的非连续数据块，最多支持3个范围
+    /// 如果没有SACK选项，返回包含None的数组
     ///
     pub fn selective_ack_ranges(&self) -> Result<[Option<(u32, u32)>; 3]> {
         let data = self.buffer.as_ref();
@@ -370,14 +393,15 @@ impl<T: AsRef<[u8]>> Packet<T> {
         Ok([None, None, None])
     }
 
-    /// Validate the partial checksum.
+    /// 验证部分校验和（仅伪头部）
     ///
     /// # Panics
-    /// This function panics unless `src_addr` and `dst_addr` belong to the same family,
-    /// and that family is IPv4 or IPv6.
+    /// 如果 `src_addr` 和 `dst_addr` 不属于同一家族（IPv4或IPv6），此函数会panic
     ///
-    /// # Fuzzing
-    /// This function always returns `true` when fuzzing.
+    /// # 模糊测试
+    /// 在模糊测试时，此函数始终返回 `true`
+    ///
+    /// 用于验证TCP校验和中的伪头部部分，确保源地址、目的地址、协议和长度字段正确
     pub fn verify_partial_checksum(&self, src_addr: &IpAddress, dst_addr: &IpAddress) -> bool {
         if cfg!(fuzzing) {
             return true;
@@ -389,14 +413,15 @@ impl<T: AsRef<[u8]>> Packet<T> {
             == self.checksum()
     }
 
-    /// Validate the packet checksum.
+    /// 验证整个数据包的校验和
     ///
     /// # Panics
-    /// This function panics unless `src_addr` and `dst_addr` belong to the same family,
-    /// and that family is IPv4 or IPv6.
+    /// 如果 `src_addr` 和 `dst_addr` 不属于同一家族（IPv4或IPv6），此函数会panic
     ///
-    /// # Fuzzing
-    /// This function always returns `true` when fuzzing.
+    /// # 模糊测试
+    /// 在模糊测试时，此函数始终返回 `true`
+    ///
+    /// 验证整个TCP数据包的校验和，包括伪头部、TCP头部和数据部分
     pub fn verify_checksum(&self, src_addr: &IpAddress, dst_addr: &IpAddress) -> bool {
         if cfg!(fuzzing) {
             return true;
@@ -411,8 +436,8 @@ impl<T: AsRef<[u8]>> Packet<T> {
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> Packet<&'a T> {
-        /// 返回选项字段的指针
-    /// 
+    /// 返回选项字段的指针
+    ///
     /// 获取TCP头部中选项部分的数据，选项长度由头部长度决定
     #[inline]
     pub fn options(&self) -> &'a [u8] {
@@ -421,8 +446,8 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Packet<&'a T> {
         &data[field::OPTIONS(header_len)]
     }
 
-        /// 返回负载数据的指针
-    /// 
+    /// 返回负载数据的指针
+    ///
     /// 获取TCP数据包中应用层数据部分，位于TCP头部之后
     #[inline]
     pub fn payload(&self) -> &'a [u8] {
@@ -433,35 +458,45 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Packet<&'a T> {
 }
 
 impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
-    /// Set the source port field.
+    /// 设置源端口字段
+    /// 源端口标识发送方的应用程序端口，0表示未使用
+    /// 端口范围0-1023为知名端口，1024-49151为注册端口，49152-65535为动态端口
     #[inline]
     pub fn set_src_port(&mut self, value: u16) {
         let data = self.buffer.as_mut();
         NetworkEndian::write_u16(&mut data[field::SRC_PORT], value)
     }
 
-    /// Set the destination port field.
+    /// 设置目的端口字段
+    /// 目的端口标识接收方的应用程序端口，0表示无效端口
+    /// 常用端口如80(HTTP)、443(HTTPS)、22(SSH)、21(FTP)等
     #[inline]
     pub fn set_dst_port(&mut self, value: u16) {
         let data = self.buffer.as_mut();
         NetworkEndian::write_u16(&mut data[field::DST_PORT], value)
     }
 
-    /// Set the sequence number field.
+    /// 设置序列号字段
+    /// 序列号标识发送数据的字节流位置，确保TCP数据的有序传输
+    /// 初始序列号(ISN)在连接建立时随机选择，后续每个字节都会递增序列号
     #[inline]
     pub fn set_seq_number(&mut self, value: SeqNumber) {
         let data = self.buffer.as_mut();
         NetworkEndian::write_i32(&mut data[field::SEQ_NUM], value.0)
     }
 
-    /// Set the acknowledgement number field.
+    /// 设置确认号字段
+    /// 确认号表示期望接收的下一个字节序列号，用于可靠传输确认
+    /// 仅在ACK标志位设置时有效，确认已成功接收的所有数据
     #[inline]
     pub fn set_ack_number(&mut self, value: SeqNumber) {
         let data = self.buffer.as_mut();
         NetworkEndian::write_i32(&mut data[field::ACK_NUM], value.0)
     }
 
-    /// Clear the entire flags field.
+    /// 清除整个标志字段
+    /// 将TCP标志字段的所有标志位清零，保留头部长度字段
+    /// 用于在设置新标志之前重置所有TCP标志
     #[inline]
     pub fn clear_flags(&mut self) {
         let data = self.buffer.as_mut();
@@ -470,7 +505,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         NetworkEndian::write_u16(&mut data[field::FLAGS], raw)
     }
 
-    /// Set the FIN flag.
+    /// 设置FIN标志位
+    /// FIN标志表示发送方已完成数据发送，用于优雅关闭TCP连接
+    /// 当FIN=1时，表示发送方没有更多数据要发送
     #[inline]
     pub fn set_fin(&mut self, value: bool) {
         let data = self.buffer.as_mut();
@@ -483,7 +520,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         NetworkEndian::write_u16(&mut data[field::FLAGS], raw)
     }
 
-    /// Set the SYN flag.
+    /// 设置SYN标志位
+    /// SYN标志用于建立TCP连接时的序列号同步
+    /// 在三次握手过程中，SYN=1表示这是一个连接请求或连接接受报文
     #[inline]
     pub fn set_syn(&mut self, value: bool) {
         let data = self.buffer.as_mut();
@@ -496,7 +535,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         NetworkEndian::write_u16(&mut data[field::FLAGS], raw)
     }
 
-    /// Set the RST flag.
+    /// 设置RST标志位
+    /// RST标志用于强制重置TCP连接，通常在出现错误或需要中止连接时设置
+    /// 当RST=1时，表示连接出现严重错误，必须立即释放
     #[inline]
     pub fn set_rst(&mut self, value: bool) {
         let data = self.buffer.as_mut();
@@ -509,7 +550,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         NetworkEndian::write_u16(&mut data[field::FLAGS], raw)
     }
 
-    /// Set the PSH flag.
+    /// 设置PSH标志位
+    /// PSH标志表示接收方应该立即将数据推送给应用层，而不是等待缓冲区填满
+    /// 用于确保数据及时传输到应用程序，常用于交互式应用
     #[inline]
     pub fn set_psh(&mut self, value: bool) {
         let data = self.buffer.as_mut();
@@ -522,7 +565,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         NetworkEndian::write_u16(&mut data[field::FLAGS], raw)
     }
 
-    /// Set the ACK flag.
+    /// 设置ACK标志位
+    /// ACK标志表示确认号字段有效，用于确认已成功接收的数据
+    /// 除了初始SYN报文外，TCP连接建立后的所有报文都应该设置ACK标志
     #[inline]
     pub fn set_ack(&mut self, value: bool) {
         let data = self.buffer.as_mut();
@@ -535,7 +580,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         NetworkEndian::write_u16(&mut data[field::FLAGS], raw)
     }
 
-    /// Set the URG flag.
+    /// 设置URG标志位
+    /// URG标志表示紧急指针字段有效，用于指示数据包中的紧急数据
+    /// 当URG=1时，紧急指针字段指示紧急数据的结束位置
     #[inline]
     pub fn set_urg(&mut self, value: bool) {
         let data = self.buffer.as_mut();
@@ -548,7 +595,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         NetworkEndian::write_u16(&mut data[field::FLAGS], raw)
     }
 
-    /// Set the ECE flag.
+    /// 设置ECE标志位
+    /// ECE标志用于ECN（显式拥塞通知）机制，表示网络中存在拥塞
+    /// 在TCP三次握手时设置，表示支持ECN功能
     #[inline]
     pub fn set_ece(&mut self, value: bool) {
         let data = self.buffer.as_mut();
@@ -561,7 +610,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         NetworkEndian::write_u16(&mut data[field::FLAGS], raw)
     }
 
-    /// Set the CWR flag.
+    /// 设置CWR标志位
+    /// CWR标志表示发送方已经接收到ECE标志，并降低了发送速率
+    /// 与ECN机制配合使用，用于拥塞控制
     #[inline]
     pub fn set_cwr(&mut self, value: bool) {
         let data = self.buffer.as_mut();
@@ -574,7 +625,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         NetworkEndian::write_u16(&mut data[field::FLAGS], raw)
     }
 
-    /// Set the NS flag.
+    /// 设置NS标志位
+    /// NS标志用于ECN-nonce机制，提供对ECN的额外保护
+    /// 用于检测中间设备是否不当修改了ECN标志
     #[inline]
     pub fn set_ns(&mut self, value: bool) {
         let data = self.buffer.as_mut();
@@ -596,32 +649,40 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         NetworkEndian::write_u16(&mut data[field::FLAGS], raw)
     }
 
-    /// Set the window size field.
+    /// 设置窗口大小字段
+    /// 窗口大小表示接收方当前可用的接收缓冲区大小，用于流量控制
+    /// 单位是字节，最大值为65535，可以通过窗口扩大选项扩展到更大的值
     #[inline]
     pub fn set_window_len(&mut self, value: u16) {
         let data = self.buffer.as_mut();
         NetworkEndian::write_u16(&mut data[field::WIN_SIZE], value)
     }
 
-    /// Set the checksum field.
+    /// 设置校验和字段
+    /// TCP校验和用于检测数据在传输过程中是否发生错误
+    /// 覆盖TCP头部、数据和伪头部（源IP、目的IP、协议和TCP长度）
     #[inline]
     pub fn set_checksum(&mut self, value: u16) {
         let data = self.buffer.as_mut();
         NetworkEndian::write_u16(&mut data[field::CHECKSUM], value)
     }
 
-    /// Set the urgent pointer field.
+    /// 设置紧急指针字段
+    /// 紧急指针指示数据包中紧急数据的结束位置，仅在URG标志设置时有效
+    /// 紧急数据应该被优先处理，常用于传输重要控制信息
     #[inline]
     pub fn set_urgent_at(&mut self, value: u16) {
         let data = self.buffer.as_mut();
         NetworkEndian::write_u16(&mut data[field::URGENT], value)
     }
 
-    /// Compute and fill in the header checksum.
+    /// 计算并填充TCP头部校验和
+    ///
+    /// 该函数计算整个TCP数据包的校验和，包括伪头部、TCP头部和数据部分
+    /// 伪头部包含源IP地址、目的IP地址、协议类型和TCP长度
     ///
     /// # Panics
-    /// This function panics unless `src_addr` and `dst_addr` belong to the same family,
-    /// and that family is IPv4 or IPv6.
+    /// 如果src_addr和dst_addr不属于同一家族（IPv4或IPv6），此函数会panic
     pub fn fill_checksum(&mut self, src_addr: &IpAddress, dst_addr: &IpAddress) {
         self.set_checksum(0);
         let checksum = {
@@ -634,7 +695,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         self.set_checksum(checksum)
     }
 
-    /// Return a pointer to the options.
+    /// 返回TCP选项的可变引用
+    /// 选项字段包含各种TCP扩展功能，如MSS、窗口扩大、SACK等
+    /// 返回的切片包含从选项开始到数据部分之前的所有选项数据
     #[inline]
     pub fn options_mut(&mut self) -> &mut [u8] {
         let header_len = self.header_len();
@@ -642,7 +705,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         &mut data[field::OPTIONS(header_len)]
     }
 
-    /// Return a mutable pointer to the payload data.
+    /// 返回TCP数据部分的可变引用
+    /// 数据部分包含应用层要传输的实际数据，位于TCP头部之后
+    /// 返回的切片从TCP头部结束位置开始到数据包末尾
     #[inline]
     pub fn payload_mut(&mut self) -> &mut [u8] {
         let header_len = self.header_len() as usize;
@@ -657,21 +722,25 @@ impl<T: AsRef<[u8]>> AsRef<[u8]> for Packet<T> {
     }
 }
 
-/// A representation of a single TCP option.
+/// TCP选项的枚举表示
+/// 包含TCP协议支持的各种选项类型，用于扩展TCP功能
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum TcpOption<'a> {
-    EndOfList,
-    NoOperation,
-    MaxSegmentSize(u16),
-    WindowScale(u8),
-    SackPermitted,
-    SackRange([Option<(u32, u32)>; 3]),
-    TimeStamp { tsval: u32, tsecr: u32 },
-    Unknown { kind: u8, data: &'a [u8] },
+    EndOfList,                            // 选项列表结束标记
+    NoOperation,                          // 无操作选项，用于对齐
+    MaxSegmentSize(u16),                  // 最大段大小选项
+    WindowScale(u8),                      // 窗口扩大选项
+    SackPermitted,                        // 选择性确认允许选项
+    SackRange([Option<(u32, u32)>; 3]),   // 选择性确认范围，最多3个范围
+    TimeStamp { tsval: u32, tsecr: u32 }, // 时间戳选项
+    Unknown { kind: u8, data: &'a [u8] }, // 未知选项类型
 }
 
 impl<'a> TcpOption<'a> {
+    /// 解析TCP选项
+    /// 从字节缓冲区中解析出TCP选项，返回剩余缓冲区和解析出的选项
+    /// 支持标准TCP选项如MSS、窗口扩大、SACK、时间戳等
     pub fn parse(buffer: &'a [u8]) -> Result<(&'a [u8], TcpOption<'a>)> {
         let (length, option);
         match *buffer.first().ok_or(Error)? {
@@ -689,34 +758,38 @@ impl<'a> TcpOption<'a> {
                 match (kind, length) {
                     (field::OPT_END, _) | (field::OPT_NOP, _) => unreachable!(),
                     (field::OPT_MSS, 4) => {
+                        // 最大段大小选项：4字节长度，包含2字节MSS值
                         option = TcpOption::MaxSegmentSize(NetworkEndian::read_u16(data))
                     }
                     (field::OPT_MSS, _) => return Err(Error),
-                    (field::OPT_WS, 3) => option = TcpOption::WindowScale(data[0]),
+                    (field::OPT_WS, 3) => {
+                        // 窗口扩大选项：3字节长度，包含1字节扩大因子
+                        option = TcpOption::WindowScale(data[0])
+                    }
                     (field::OPT_WS, _) => return Err(Error),
-                    (field::OPT_SACKPERM, 2) => option = TcpOption::SackPermitted,
+                    (field::OPT_SACKPERM, 2) => {
+                        // SACK允许选项：2字节长度，仅包含选项类型和长度
+                        option = TcpOption::SackPermitted
+                    }
                     (field::OPT_SACKPERM, _) => return Err(Error),
                     (field::OPT_SACKRNG, n) => {
+                        // SACK范围选项：包含多个确认范围，每个范围8字节
                         if n < 10 || (n - 2) % 8 != 0 {
                             return Err(Error);
                         }
                         if n > 26 {
-                            // It's possible for a remote to send 4 SACK blocks, but extremely rare.
-                            // Better to "lose" that 4th block and save the extra RAM and CPU
-                            // cycles in the vastly more common case.
+                            // 远程主机可能发送4个SACK块，但极其罕见
+                            // 为了节省RAM和CPU周期，限制为3个块
                             //
-                            // RFC 2018: SACK option that specifies n blocks will have a length of
-                            // 8*n+2 bytes, so the 40 bytes available for TCP options can specify a
-                            // maximum of 4 blocks.  It is expected that SACK will often be used in
-                            // conjunction with the Timestamp option used for RTTM [...] thus a
-                            // maximum of 3 SACK blocks will be allowed in this case.
+                            // RFC 2018: 指定n个块的SACK选项长度为8*n+2字节，
+                            // TCP选项可用的40字节最多可指定4个块。
+                            // 预计SACK通常会与时间戳选项一起使用，因此最多允许3个SACK块
                             net_debug!("sACK with >3 blocks, truncating to 3");
                         }
                         let mut sack_ranges: [Option<(u32, u32)>; 3] = [None; 3];
 
-                        // RFC 2018: Each contiguous block of data queued at the data receiver is
-                        // defined in the SACK option by two 32-bit unsigned integers in network
-                        // byte order[...]
+                        // RFC 2018: 数据接收方队列中的每个连续数据块
+                        // 由SACK选项中的两个32位无符号整数定义
                         sack_ranges.iter_mut().enumerate().for_each(|(i, nmut)| {
                             let left = i * 8;
                             *nmut = if left < data.len() {
@@ -732,6 +805,7 @@ impl<'a> TcpOption<'a> {
                         option = TcpOption::SackRange(sack_ranges);
                     }
                     (field::OPT_TSTAMP, 10) => {
+                        // 时间戳选项：10字节长度，包含发送时间戳和回显时间戳
                         let tsval = NetworkEndian::read_u32(&data[0..4]);
                         let tsecr = NetworkEndian::read_u32(&data[4..8]);
                         option = TcpOption::TimeStamp { tsval, tsecr };
@@ -743,25 +817,30 @@ impl<'a> TcpOption<'a> {
         Ok((&buffer[length..], option))
     }
 
+    /// 返回TCP选项需要的缓冲区长度
+    /// 根据选项类型计算所需的字节数，用于序列化选项数据
     pub fn buffer_len(&self) -> usize {
         match *self {
-            TcpOption::EndOfList => 1,
-            TcpOption::NoOperation => 1,
-            TcpOption::MaxSegmentSize(_) => 4,
-            TcpOption::WindowScale(_) => 3,
-            TcpOption::SackPermitted => 2,
-            TcpOption::SackRange(s) => s.iter().filter(|s| s.is_some()).count() * 8 + 2,
-            TcpOption::TimeStamp { tsval: _, tsecr: _ } => 10,
-            TcpOption::Unknown { data, .. } => 2 + data.len(),
+            TcpOption::EndOfList => 1,         // 结束标记只需要1字节
+            TcpOption::NoOperation => 1,       // 无操作选项只需要1字节
+            TcpOption::MaxSegmentSize(_) => 4, // MSS选项需要4字节（类型+长度+2字节值）
+            TcpOption::WindowScale(_) => 3,    // 窗口扩大选项需要3字节（类型+长度+1字节值）
+            TcpOption::SackPermitted => 2,     // SACK允许选项需要2字节（类型+长度）
+            TcpOption::SackRange(s) => s.iter().filter(|s| s.is_some()).count() * 8 + 2, // 每个SACK范围8字节+2字节头部
+            TcpOption::TimeStamp { tsval: _, tsecr: _ } => 10, // 时间戳选项需要10字节
+            TcpOption::Unknown { data, .. } => 2 + data.len(), // 未知选项需要2字节头部+数据长度
         }
     }
 
+    /// 将TCP选项序列化到缓冲区中
+    /// 根据选项类型将选项数据写入缓冲区，并返回剩余的可写缓冲区
+    /// 用于构建TCP数据包时添加选项字段
     pub fn emit<'b>(&self, buffer: &'b mut [u8]) -> &'b mut [u8] {
         let length;
         match *self {
             TcpOption::EndOfList => {
                 length = 1;
-                // There may be padding space which also should be initialized.
+                // 可能存在填充空间也需要初始化
                 for p in buffer.iter_mut() {
                     *p = field::OPT_END;
                 }
@@ -776,17 +855,21 @@ impl<'a> TcpOption<'a> {
                 match self {
                     &TcpOption::EndOfList | &TcpOption::NoOperation => unreachable!(),
                     &TcpOption::MaxSegmentSize(value) => {
+                        // 最大段大小选项
                         buffer[0] = field::OPT_MSS;
                         NetworkEndian::write_u16(&mut buffer[2..], value)
                     }
                     &TcpOption::WindowScale(value) => {
+                        // 窗口扩大选项
                         buffer[0] = field::OPT_WS;
                         buffer[2] = value;
                     }
                     &TcpOption::SackPermitted => {
+                        // SACK允许选项
                         buffer[0] = field::OPT_SACKPERM;
                     }
                     &TcpOption::SackRange(slice) => {
+                        // SACK范围选项
                         buffer[0] = field::OPT_SACKRNG;
                         slice
                             .iter()
@@ -800,6 +883,7 @@ impl<'a> TcpOption<'a> {
                             });
                     }
                     &TcpOption::TimeStamp { tsval, tsecr } => {
+                        // 时间戳选项
                         buffer[0] = field::OPT_TSTAMP;
                         NetworkEndian::write_u32(&mut buffer[2..], tsval);
                         NetworkEndian::write_u32(&mut buffer[6..], tsecr);
@@ -808,6 +892,7 @@ impl<'a> TcpOption<'a> {
                         kind,
                         data: provided,
                     } => {
+                        // 未知选项类型
                         buffer[0] = kind;
                         buffer[2..].copy_from_slice(provided)
                     }
@@ -818,51 +903,55 @@ impl<'a> TcpOption<'a> {
     }
 }
 
-/// The possible control flags of a Transmission Control Protocol packet.
+/// TCP控制标志的枚举表示
+/// 表示TCP数据包中的控制标志，用于控制TCP连接状态和数据传输
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Control {
-    None,
-    Psh,
-    Syn,
-    Fin,
-    Rst,
+    None, // 无控制标志
+    Psh,  // PSH标志：推送数据
+    Syn,  // SYN标志：同步序列号
+    Fin,  // FIN标志：结束连接
+    Rst,  // RST标志：重置连接
 }
 
 #[allow(clippy::len_without_is_empty)]
 impl Control {
-    /// Return the length of a control flag, in terms of sequence space.
+    /// 返回控制标志在序列空间中的长度
+    /// SYN和FIN标志各占1个序列号，其他标志不占序列空间
     pub const fn len(self) -> usize {
         match self {
-            Control::Syn | Control::Fin => 1,
-            _ => 0,
+            Control::Syn | Control::Fin => 1, // SYN和FIN各占1个序列号
+            _ => 0,                           // 其他标志不占序列空间
         }
     }
 
-    /// Turn the PSH flag into no flag, and keep the rest as-is.
+    /// 将PSH标志转换为无标志，保持其他标志不变
+    /// 用于在某些情况下忽略PSH标志的影响
     pub const fn quash_psh(self) -> Control {
         match self {
-            Control::Psh => Control::None,
-            _ => self,
+            Control::Psh => Control::None, // 将PSH转换为None
+            _ => self,                     // 其他标志保持不变
         }
     }
 }
 
-/// A high-level representation of a Transmission Control Protocol packet.
+/// TCP数据包的高级表示
+/// 提供TCP数据包的高层抽象，包含所有重要的TCP字段和选项
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Repr<'a> {
-    pub src_port: u16,
-    pub dst_port: u16,
-    pub control: Control,
-    pub seq_number: SeqNumber,
-    pub ack_number: Option<SeqNumber>,
-    pub window_len: u16,
-    pub window_scale: Option<u8>,
-    pub max_seg_size: Option<u16>,
-    pub sack_permitted: bool,
-    pub sack_ranges: [Option<(u32, u32)>; 3],
-    pub timestamp: Option<TcpTimestampRepr>,
-    pub payload: &'a [u8],
+    pub src_port: u16,                        // 源端口号
+    pub dst_port: u16,                        // 目的端口号
+    pub control: Control,                     // 控制标志
+    pub seq_number: SeqNumber,                // 序列号
+    pub ack_number: Option<SeqNumber>,        // 确认号（可选）
+    pub window_len: u16,                      // 窗口大小
+    pub window_scale: Option<u8>,             // 窗口扩大因子（可选）
+    pub max_seg_size: Option<u16>,            // 最大段大小（可选）
+    pub sack_permitted: bool,                 // 是否允许SACK
+    pub sack_ranges: [Option<(u32, u32)>; 3], // SACK范围数组
+    pub timestamp: Option<TcpTimestampRepr>,  // 时间戳（可选）
+    pub payload: &'a [u8],                    // 数据负载
 }
 
 pub type TcpTimestampGenerator = fn() -> u32;
@@ -891,7 +980,10 @@ impl TcpTimestampRepr {
 }
 
 impl<'a> Repr<'a> {
-    /// Parse a Transmission Control Protocol packet and return a high-level representation.
+    /// 解析TCP数据包并返回高级表示
+    ///
+    /// 该函数从原始TCP数据包中提取所有字段和选项，构建Repr结构体
+    /// 会进行基本的验证，包括校验和验证和字段有效性检查
     pub fn parse<T>(
         packet: &Packet<&'a T>,
         src_addr: &IpAddress,
@@ -903,14 +995,14 @@ impl<'a> Repr<'a> {
     {
         packet.check_len()?;
 
-        // Source and destination ports must be present.
+        // 源端口和目的端口必须存在
         if packet.src_port() == 0 {
             return Err(Error);
         }
         if packet.dst_port() == 0 {
             return Err(Error);
         }
-        // Valid checksum is expected.
+        // 校验和必须有效
         if checksum_caps.tcp.rx() && !packet.verify_checksum(src_addr, dst_addr) {
             return Err(Error);
         }
@@ -927,10 +1019,10 @@ impl<'a> Repr<'a> {
             true => Some(packet.ack_number()),
             false => None,
         };
-        // The PSH flag is ignored.
-        // The URG flag and the urgent field is ignored. This behavior is standards-compliant,
-        // however, most deployed systems (e.g. Linux) are *not* standards-compliant, and would
-        // cut the byte at the urgent pointer from the stream.
+        // PSH标志被忽略
+        // URG标志和紧急指针字段被忽略。这种行为符合标准，
+        // 然而，大多数已部署的系统（如Linux）不符合标准，
+        // 会从流中剪切紧急指针处的字节
 
         let mut max_seg_size = None;
         let mut window_scale = None;
@@ -945,10 +1037,9 @@ impl<'a> Repr<'a> {
                 TcpOption::NoOperation => (),
                 TcpOption::MaxSegmentSize(value) => max_seg_size = Some(value),
                 TcpOption::WindowScale(value) => {
-                    // RFC 1323: Thus, the shift count must be limited to 14 (which allows windows
-                    // of 2**30 = 1 Gigabyte). If a Window Scale option is received with a shift.cnt
-                    // value exceeding 14, the TCP should log the error but use 14 instead of the
-                    // specified value.
+                    // RFC 1323: 移位计数必须限制为14（允许窗口大小为2**30 = 1GB）
+                    // 如果接收到的窗口扩大选项的移位计数值超过14，
+                    // TCP应该记录错误但使用14而不是指定的值
                     window_scale = if value > 14 {
                         net_debug!(
                             "{}:{}:{}:{}: parsed window scaling factor >14, setting to 14",
@@ -988,10 +1079,10 @@ impl<'a> Repr<'a> {
         })
     }
 
-    /// Return the length of a header that will be emitted from this high-level representation.
+    /// 返回从此高级表示发出的TCP头部的长度
     ///
-    /// This should be used for buffer space calculations.
-    /// The TCP header length is a multiple of 4.
+    /// 该函数用于缓冲区空间计算，考虑了所有选项字段的长度
+    /// TCP头部长度是4的倍数，不足时会填充到4字节边界
     pub fn header_len(&self) -> usize {
         let mut length = field::URGENT.end;
         if self.max_seg_size.is_some() {
@@ -1020,12 +1111,17 @@ impl<'a> Repr<'a> {
         length
     }
 
-    /// Return the length of a packet that will be emitted from this high-level representation.
+    /// 返回从此高级表示发出的整个TCP数据包的长度
+    ///
+    /// 包括TCP头部和数据负载的总长度，用于缓冲区分配
     pub fn buffer_len(&self) -> usize {
         self.header_len() + self.payload.len()
     }
 
-    /// Emit a high-level representation into a Transmission Control Protocol packet.
+    /// 将高级表示序列化为TCP数据包
+    ///
+    /// 该函数将Repr结构体中的数据写入TCP数据包缓冲区
+    /// 包括设置所有字段、选项和计算校验和
     pub fn emit<T>(
         &self,
         packet: &mut Packet<&mut T>,
@@ -1042,6 +1138,7 @@ impl<'a> Repr<'a> {
         packet.set_window_len(self.window_len);
         packet.set_header_len(self.header_len() as u8);
         packet.clear_flags();
+        // 设置控制标志
         match self.control {
             Control::None => (),
             Control::Psh => packet.set_psh(true),
@@ -1081,23 +1178,29 @@ impl<'a> Repr<'a> {
             }
         }
         packet.set_urgent_at(0);
+        // 复制数据负载到数据包中
         packet.payload_mut()[..self.payload.len()].copy_from_slice(self.payload);
 
+        // 计算并设置校验和
         if checksum_caps.tcp.tx() {
             packet.fill_checksum(src_addr, dst_addr)
         } else {
-            // make sure we get a consistently zeroed checksum,
-            // since implementations might rely on it
+            // 确保校验和字段为0，因为某些实现可能依赖于此
             packet.set_checksum(0);
         }
     }
 
-    /// Return the length of the segment, in terms of sequence space.
+    /// 返回TCP段在序列空间中的长度
+    ///
+    /// 包括数据负载的长度和控制标志占用的序列空间
+    /// SYN和FIN标志各占1个序列号，数据负载每个字节占1个序列号
     pub const fn segment_len(&self) -> usize {
         self.payload.len() + self.control.len()
     }
 
-    /// Return whether the segment has no flags set (except PSH) and no data.
+    /// 判断TCP段是否为空（除了PSH标志外没有其他标志且没有数据）
+    ///
+    /// 空段通常用于确认或保持连接活跃，不包含有效数据和控制信息
     pub const fn is_empty(&self) -> bool {
         match self.control {
             _ if !self.payload.is_empty() => false,
@@ -1109,7 +1212,7 @@ impl<'a> Repr<'a> {
 
 impl<T: AsRef<[u8]> + ?Sized> fmt::Display for Packet<&T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // Cannot use Repr::parse because we don't have the IP addresses.
+        // 不能使用Repr::parse，因为我们没有IP地址
         write!(f, "TCP src={} dst={}", self.src_port(), self.dst_port())?;
         if self.syn() {
             write!(f, " syn")?
@@ -1143,6 +1246,7 @@ impl<T: AsRef<[u8]> + ?Sized> fmt::Display for Packet<&T> {
         write!(f, " len={}", self.payload().len())?;
 
         let mut options = self.options();
+        // 解析并显示所有TCP选项
         while !options.is_empty() {
             let (next_options, option) = match TcpOption::parse(options) {
                 Ok(res) => res,
@@ -1154,7 +1258,7 @@ impl<T: AsRef<[u8]> + ?Sized> fmt::Display for Packet<&T> {
                 TcpOption::MaxSegmentSize(value) => write!(f, " mss={value}")?,
                 TcpOption::WindowScale(value) => write!(f, " ws={value}")?,
                 TcpOption::SackPermitted => write!(f, " sACK")?,
-                TcpOption::SackRange(slice) => write!(f, " sACKr{slice:?}")?, // debug print conveniently includes the []s
+                TcpOption::SackRange(slice) => write!(f, " sACKr{slice:?}")?, // debug打印方便地包含[]
                 TcpOption::TimeStamp { tsval, tsecr } => {
                     write!(f, " tsval {tsval:08x} tsecr {tsecr:08x}")?
                 }
@@ -1169,6 +1273,7 @@ impl<T: AsRef<[u8]> + ?Sized> fmt::Display for Packet<&T> {
 impl<'a> fmt::Display for Repr<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "TCP src={} dst={}", self.src_port, self.dst_port)?;
+        // 显示控制标志
         match self.control {
             Control::Syn => write!(f, " syn")?,
             Control::Fin => write!(f, " fin")?,
@@ -1221,8 +1326,8 @@ impl<T: AsRef<[u8]>> PrettyPrint for Packet<T> {
         indent: &mut PrettyIndent,
     ) -> fmt::Result {
         match Packet::new_checked(buffer) {
-            Err(err) => write!(f, "{indent}({err})"),
-            Ok(packet) => write!(f, "{indent}{packet}"),
+            Err(err) => write!(f, "{indent}({err})"),    // 显示解析错误
+            Ok(packet) => write!(f, "{indent}{packet}"), // 显示格式化后的数据包
         }
     }
 }
@@ -1254,22 +1359,26 @@ mod test {
     #[cfg(feature = "proto-ipv4")]
     fn test_deconstruct() {
         let packet = Packet::new_unchecked(&PACKET_BYTES[..]);
+        // 验证基本字段解析
         assert_eq!(packet.src_port(), 48896);
         assert_eq!(packet.dst_port(), 80);
         assert_eq!(packet.seq_number(), SeqNumber(0x01234567));
         assert_eq!(packet.ack_number(), SeqNumber(0x89abcdefu32 as i32));
         assert_eq!(packet.header_len(), 24);
+        // 验证控制标志
         assert!(packet.fin());
         assert!(!packet.syn());
         assert!(packet.rst());
         assert!(!packet.psh());
         assert!(packet.ack());
         assert!(packet.urg());
+        // 验证其他字段
         assert_eq!(packet.window_len(), 0x0123);
         assert_eq!(packet.urgent_at(), 0x0201);
         assert_eq!(packet.checksum(), 0x01b6);
         assert_eq!(packet.options(), &OPTION_BYTES[..]);
         assert_eq!(packet.payload(), &PAYLOAD_BYTES[..]);
+        // 验证校验和
         assert!(packet.verify_checksum(&SRC_ADDR.into(), &DST_ADDR.into()));
     }
 
@@ -1278,24 +1387,29 @@ mod test {
     fn test_construct() {
         let mut bytes = vec![0xa5; PACKET_BYTES.len()];
         let mut packet = Packet::new_unchecked(&mut bytes);
+        // 设置基本字段
         packet.set_src_port(48896);
         packet.set_dst_port(80);
         packet.set_seq_number(SeqNumber(0x01234567));
         packet.set_ack_number(SeqNumber(0x89abcdefu32 as i32));
         packet.set_header_len(24);
         packet.clear_flags();
+        // 设置控制标志
         packet.set_fin(true);
         packet.set_syn(false);
         packet.set_rst(true);
         packet.set_psh(false);
         packet.set_ack(true);
         packet.set_urg(true);
+        // 设置其他字段
         packet.set_window_len(0x0123);
         packet.set_urgent_at(0x0201);
         packet.set_checksum(0xEEEE);
         packet.options_mut().copy_from_slice(&OPTION_BYTES[..]);
         packet.payload_mut().copy_from_slice(&PAYLOAD_BYTES[..]);
+        // 计算校验和
         packet.fill_checksum(&SRC_ADDR.into(), &DST_ADDR.into());
+        // 验证结果
         assert_eq!(&*packet.into_inner(), &PACKET_BYTES[..]);
     }
 
@@ -1371,15 +1485,19 @@ mod test {
     #[cfg(feature = "proto-ipv4")]
     fn test_header_len_multiple_of_4() {
         let mut repr = packet_repr();
-        repr.window_scale = Some(0); // This TCP Option needs 3 bytes.
-        assert_eq!(repr.header_len() % 4, 0); // Should e.g. be 28 instead of 27.
+        repr.window_scale = Some(0); // 这个TCP选项需要3字节
+        // 头部长度应该是4的倍数，例如28而不是27
+        assert_eq!(repr.header_len() % 4, 0);
     }
 
     macro_rules! assert_option_parses {
         ($opt:expr, $data:expr) => {{
+            // 验证解析功能
             assert_eq!(TcpOption::parse($data), Ok((&[][..], $opt)));
             let buffer = &mut [0; 40][..$opt.buffer_len()];
+            // 验证序列化功能
             assert_eq!($opt.emit(buffer), &mut []);
+            // 验证结果一致性
             assert_eq!(&*buffer, $data);
         }};
     }
@@ -1436,11 +1554,12 @@ mod test {
 
     #[test]
     fn test_malformed_tcp_options() {
-        assert_eq!(TcpOption::parse(&[]), Err(Error));
-        assert_eq!(TcpOption::parse(&[0xc]), Err(Error));
-        assert_eq!(TcpOption::parse(&[0xc, 0x05, 0x01, 0x02]), Err(Error));
-        assert_eq!(TcpOption::parse(&[0xc, 0x01]), Err(Error));
-        assert_eq!(TcpOption::parse(&[0x2, 0x02]), Err(Error));
-        assert_eq!(TcpOption::parse(&[0x3, 0x02]), Err(Error));
+        // 测试各种格式错误的TCP选项
+        assert_eq!(TcpOption::parse(&[]), Err(Error)); // 空数据
+        assert_eq!(TcpOption::parse(&[0xc]), Err(Error)); // 只有类型，没有长度
+        assert_eq!(TcpOption::parse(&[0xc, 0x05, 0x01, 0x02]), Err(Error)); // 数据不足
+        assert_eq!(TcpOption::parse(&[0xc, 0x01]), Err(Error)); // 长度字段无效
+        assert_eq!(TcpOption::parse(&[0x2, 0x02]), Err(Error)); // MSS选项长度不足
+        assert_eq!(TcpOption::parse(&[0x3, 0x02]), Err(Error)); // 窗口扩大选项长度不足
     }
 }

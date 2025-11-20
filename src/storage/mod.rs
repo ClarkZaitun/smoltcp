@@ -1,8 +1,7 @@
-/*! Specialized containers.
+/*! 专用容器模块。
 
-The `storage` module provides containers for use in other modules.
-The containers support both pre-allocated memory, without the `std`
-or `alloc` crates being available, and heap-allocated memory.
+`storage` 模块为其他模块提供容器支持。
+这些容器支持预分配内存（无需 `std` 或 `alloc` crate）和堆分配内存。
 */
 
 mod assembler;
@@ -13,19 +12,19 @@ pub use self::assembler::Assembler;
 pub use self::packet_buffer::{PacketBuffer, PacketMetadata};
 pub use self::ring_buffer::RingBuffer;
 
-/// A trait for setting a value to a known state.
+/// 将值设置为已知状态的特征。
 ///
-/// In-place analog of Default.
+/// Default 的本地替代版本。
 pub trait Resettable {
     fn reset(&mut self);
 }
 
-/// Error returned when enqueuing into a full buffer.
+/// 向已满缓冲区入队时返回的错误。
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Full;
 
-/// Error returned when dequeuing from an empty buffer.
+/// 从空缓冲区出队时返回的错误。
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Empty;
