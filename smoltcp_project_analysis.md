@@ -306,6 +306,159 @@ let timeout_poll_at = match (self.remote_last_ts, self.timeout) {
 - 网络性能测试
 - 故障注入测试
 
+## 多线程环境下的数据安全
+
+### 核心结论
+
+**Smoltcp设计上就是单线程的，不支持多线程直接并发访问socket。**
+
+### 设计架构分析
+
+从代码分析可以看出：
+
+- **单线程设计**：smoltcp的socket操作完全没有线程同步机制（没有Mutex、Atomic、Send/Sync实现）
+- **直接内存访问**：socket的读写操作直接访问内部缓冲区，如`send_slice()`和`recv()`方法
+- **无并发保护**：在`src/socket/tcp.rs`和`src/socket/udp.rs`中，所有操作都是非线程安全的
+
+### 多线程环境下的数据安全解决方案
+
+既然smoltcp本身是单线程的，在多线程环境中使用时需要外部同步机制：
+
+#### 方案一：使用Mutex保护整个SocketSet
+```rust
+use std::sync::{Arc, Mutex};
+
+// 创建一个线程安全的smoltcp封装
+pub struct ThreadSafeSmolTcp {
+    socket_set: Arc<Mutex<SocketSet<'static>>>,
+    interface: Arc<Mutex<Interface>>,
+}
+
+impl ThreadSafeSmolTcp {
+    pub fn send_data(&self, handle: SocketHandle, data: &[u8]) -> Result<usize, SendError> {
+        let mut socket_set = self.socket_set.lock().unwrap();
+        let socket = socket_set.get_mut::<tcp::Socket>(handle);
+        
+        if socket.can_send() {
+            socket.send_slice(data)
+        } else {
+            Err(SendError::BufferFull)
+        }
+    }
+    
+    pub fn recv_data<F, R>(&self, handle: SocketHandle, f: F) -> Result<R, RecvError>
+    where F: FnOnce(&[u8]) -> R {
+        let mut socket_set = self.socket_set.lock().unwrap();
+        let socket = socket_set.get_mut::<tcp::Socket>(handle);
+        
+        socket.recv(f)
+    }
+}
+```
+
+#### 方案二：消息队列模式
+```rust
+use std::sync::mpsc;
+use std::thread;
+
+// 发送消息队列
+enum SocketCommand {
+    SendData(SocketHandle, Vec<u8>),
+    RecvData(SocketHandle),
+    Close(SocketHandle),
+}
+
+pub struct SmolTcpManager {
+    command_tx: mpsc::Sender<SocketCommand>,
+    result_rx: mpsc::Receiver<Result<Vec<u8>, Error>>,
+}
+
+impl SmolTcpManager {
+    pub fn new() -> Self {
+        let (command_tx, command_rx) = mpsc::channel();
+        let (result_tx, result_rx) = mpsc::channel();
+        
+        // 启动专用的smoltcp工作线程
+        thread::spawn(move || {
+            let mut socket_set = SocketSet::new(vec![]);
+            let mut interface = /* 初始化接口 */;
+            
+            loop {
+                match command_rx.recv() {
+                    Ok(SocketCommand::SendData(handle, data)) => {
+                        let socket = socket_set.get_mut::<tcp::Socket>(handle);
+                        let result = socket.send_slice(&data);
+                        result_tx.send(result.map(|_| data)).unwrap();
+                    }
+                    // 处理其他命令...
+                }
+                
+                // 定期poll接口
+                interface.poll(timestamp, &mut device, &mut socket_set);
+            }
+        });
+        
+        Self { command_tx, result_rx }
+    }
+}
+```
+
+#### 方案三：通道分离模式
+```rust
+// 为每个socket创建独立的通道
+pub struct SocketChannel {
+    send_tx: mpsc::Sender<Vec<u8>>,
+    recv_rx: mpsc::Receiver<Vec<u8>>,
+}
+
+impl SocketChannel {
+    pub fn new(handle: SocketHandle, socket_set: Arc<Mutex<SocketSet>>) -> Self {
+        let (send_tx, send_rx) = mpsc::channel();
+        let (recv_tx, recv_rx) = mpsc::channel();
+        
+        // 启动socket专用处理任务
+        tokio::spawn(async move {
+            let mut socket_set = socket_set.lock().await;
+            let socket = socket_set.get_mut::<tcp::Socket>(handle);
+            
+            // 处理发送
+            while let Some(data) = send_rx.recv().await {
+                if socket.can_send() {
+                    let _ = socket.send_slice(&data);
+                }
+            }
+            
+            // 处理接收
+            if socket.can_recv() {
+                let result = socket.recv(|data| data.to_vec());
+                if let Ok(data) = result {
+                    let _ = recv_tx.send(data).await;
+                }
+            }
+        });
+        
+        Self { send_tx, recv_rx }
+    }
+}
+```
+
+### 推荐的架构模式
+
+**最佳实践是使用单线程事件循环模型**：
+
+1. **一个专用线程**处理所有smoltcp操作
+2. **消息队列**在多个生产者线程和网络线程之间传递数据
+3. **异步通知**机制处理读写就绪事件
+
+### 实际应用建议
+
+- **避免共享状态**：不要让多个线程直接操作socket
+- **使用通道通信**：通过消息队列传递数据，而不是共享内存
+- **批量处理**：尽可能批量处理网络操作，减少锁竞争
+- **错误处理**：考虑网络线程崩溃时的恢复机制
+
+这种设计虽然增加了一些复杂性，但确保了数据安全性，同时也符合smoltcp的设计哲学。
+
 ## 总结
 
-Smoltcp 通过其独特的架构设计和帧管理机制，在保持零堆分配的同时实现了高性能的网络协议栈。其模块化的设计使得它能够适应各种嵌入式和实时系统的需求，而详细的帧管理过程确保了数据的可靠传输。项目的设计理念和实现细节为嵌入式网络开发提供了优秀的参考实现。
+Smoltcp 通过其独特的架构设计和帧管理机制，在保持零堆分配的同时实现了高性能的网络协议栈。其模块化的设计使得它能够适应各种嵌入式和实时系统的需求，而详细的帧管理过程确保了数据的可靠传输。项目的设计理念和实现细节为嵌入式网络开发提供了优秀的参考实现。需要注意的是，smoltcp的单线程设计在多线程环境中需要额外的同步机制来保证数据安全。
